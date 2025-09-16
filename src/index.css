@@ -35,6 +35,59 @@
   }
 }
 
+/* --- 追加: ローディングアニメーション --- */
+@keyframes rocket-idle {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+
+@keyframes flame {
+
+  0%,
+  100% {
+    transform: scaleY(1) translateY(0);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scaleY(1.2) translateY(3px);
+    opacity: 0.8;
+  }
+}
+
+.animate-rocket-idle {
+  animation: rocket-idle 3s ease-in-out infinite;
+}
+
+.animate-flame {
+  animation: flame 0.2s linear infinite;
+  transform-origin: bottom;
+}
+
+/* --- 追加: メインコンテンツのフェードイン --- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 1s ease-out forwards;
+}
+
+/* --- ここまで追加 --- */
+
 .animate-fadeInUp {
   animation: fadeInUp 1s ease-out forwards;
 }
@@ -74,21 +127,67 @@
 }
 
 @keyframes glitch-anim-1 {
-  0% { transform: translate(0); clip-path: inset(95% 0 2% 0); }
-  20% { transform: translate(-3px, 0); clip-path: inset(32% 0 55% 0); }
-  40% { transform: translate(3px, 0); clip-path: inset(12% 0 8% 0); }
-  60% { transform: translate(-3px, 0); clip-path: inset(70% 0 25% 0); }
-  80% { transform: translate(3px, 0); clip-path: inset(45% 0 52% 0); }
-  100% { transform: translate(0); clip-path: inset(8% 0 77% 0); }
+  0% {
+    transform: translate(0);
+    clip-path: inset(95% 0 2% 0);
+  }
+
+  20% {
+    transform: translate(-3px, 0);
+    clip-path: inset(32% 0 55% 0);
+  }
+
+  40% {
+    transform: translate(3px, 0);
+    clip-path: inset(12% 0 8% 0);
+  }
+
+  60% {
+    transform: translate(-3px, 0);
+    clip-path: inset(70% 0 25% 0);
+  }
+
+  80% {
+    transform: translate(3px, 0);
+    clip-path: inset(45% 0 52% 0);
+  }
+
+  100% {
+    transform: translate(0);
+    clip-path: inset(8% 0 77% 0);
+  }
 }
 
 @keyframes glitch-anim-2 {
-  0% { transform: translate(0); clip-path: inset(2% 0 90% 0); }
-  20% { transform: translate(3px, 0); clip-path: inset(60% 0 30% 0); }
-  40% { transform: translate(-3px, 0); clip-path: inset(88% 0 2% 0); }
-  60% { transform: translate(3px, 0); clip-path: inset(40% 0 45% 0); }
-  80% { transform: translate(-3px, 0); clip-path: inset(15% 0 80% 0); }
-  100% { transform: translate(0); clip-path: inset(90% 0 5% 0); }
+  0% {
+    transform: translate(0);
+    clip-path: inset(2% 0 90% 0);
+  }
+
+  20% {
+    transform: translate(3px, 0);
+    clip-path: inset(60% 0 30% 0);
+  }
+
+  40% {
+    transform: translate(-3px, 0);
+    clip-path: inset(88% 0 2% 0);
+  }
+
+  60% {
+    transform: translate(3px, 0);
+    clip-path: inset(40% 0 45% 0);
+  }
+
+  80% {
+    transform: translate(-3px, 0);
+    clip-path: inset(15% 0 80% 0);
+  }
+
+  100% {
+    transform: translate(0);
+    clip-path: inset(90% 0 5% 0);
+  }
 }
 
 /* スクロールバーのカスタマイズ */

@@ -1,9 +1,96 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode, FC } from 'react';
 import { ChevronDown, Github, ExternalLink, Mail, Linkedin, Code2, Cpu, Database, Brain, Briefcase, GraduationCap, Cake } from 'lucide-react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, TorusKnot } from '@react-three/drei';
 import { Mesh } from 'three';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
+
+// --- Loading Animation Component ---
+const LoadingAnimation: FC<{ onFinished: () => void }> = ({ onFinished }) => {
+  const [typedText, setTypedText] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [isExiting, setIsExiting] = useState(false);
+
+  const loadingSequence = [
+    { text: 'SYSTEM CHECK INITIATED...', duration: 1500 },
+    { text: 'CONNECTING TO MAIN SERVER...', duration: 1800 },
+    { text: 'LOADING ASSETS & TEXTURES...', duration: 2200 },
+    { text: 'STARTING ENGINE SEQUENCE...', duration: 2500 },
+    { text: 'WELCOME ABOARD.', duration: 1000 },
+  ];
+
+  useEffect(() => {
+    let sequenceTimeout: number;
+    let exitTimeout: number;
+    let progressInterval: number;
+
+    const runSequence = (index: number) => {
+      if (index >= loadingSequence.length) {
+        setIsExiting(true);
+        exitTimeout = window.setTimeout(onFinished, 1000); // Fade out duration
+        return;
+      }
+
+      const current = loadingSequence[index];
+      let i = 0;
+      const typingInterval = setInterval(() => {
+        setTypedText(current.text.substring(0, i + 1));
+        i++;
+        if (i > current.text.length) {
+          clearInterval(typingInterval);
+        }
+      }, 50);
+
+      sequenceTimeout = window.setTimeout(() => {
+        runSequence(index + 1);
+      }, current.duration);
+    };
+
+    runSequence(0);
+
+    const totalDuration = loadingSequence.reduce((acc, curr) => acc + curr.duration, 0) + 500;
+    const startTime = Date.now();
+    progressInterval = window.setInterval(() => {
+      const elapsedTime = Date.now() - startTime;
+      const currentProgress = Math.min(100, (elapsedTime / totalDuration) * 100);
+      setProgress(currentProgress);
+      if (currentProgress >= 100) {
+        clearInterval(progressInterval);
+      }
+    }, 50);
+
+    return () => {
+      clearTimeout(sequenceTimeout);
+      clearTimeout(exitTimeout);
+      clearInterval(progressInterval);
+    };
+  }, [onFinished]);
+
+  return (
+    <div className={`fixed inset-0 bg-black flex flex-col items-center justify-center z-[100] text-cyan-400 font-mono transition-opacity duration-1000 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
+      <div className="w-48 h-48 mb-8 relative">
+        <svg className={`w-full h-full transition-transform duration-1000 ease-in-out ${isExiting ? '-translate-y-[150vh] rotate-45' : 'animate-rocket-idle'}`} viewBox="0 0 200 200">
+          <path d="M100 20 L140 100 L120 120 L120 180 L80 180 L80 120 L60 100 Z" fill="#e0e0e0" />
+          <circle cx="100" cy="80" r="15" fill="#22d3ee" stroke="#333" strokeWidth="4" />
+          <path d="M60 100 L40 140 L60 120 Z" fill="#c0c0c0" />
+          <path d="M140 100 L160 140 L140 120 Z" fill="#c0c0c0" />
+          <path d="M80 180 Q100 220 120 180 L100 170 Z" fill="#ffac33" className="animate-flame" />
+        </svg>
+      </div>
+      <div className="w-80 h-auto text-left p-4 bg-black/30 backdrop-blur-sm border border-cyan-500/30 rounded-lg">
+        <p className="text-lg text-white mb-2">{'>'} System Status:</p>
+        <div className="h-6 mb-2">
+          <span className="text-cyan-400">{typedText}</span>
+          <span className="animate-pulse ml-1">_</span>
+        </div>
+        <div className="w-full bg-gray-800/50 border border-cyan-500/20 rounded-full h-2.5">
+          <div className="bg-cyan-400 h-2 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // --- Custom Hook for Scroll Animation ---
 const useAnimateOnScroll = (options?: IntersectionObserverInit) => {
@@ -16,10 +103,8 @@ const useAnimateOnScroll = (options?: IntersectionObserverInit) => {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Trigger animation only when element becomes visible
         if (entry.isIntersecting) {
           setIsVisible(true);
-          // Stop observing after the animation is triggered once
           observer.unobserve(element);
         }
       },
@@ -55,7 +140,6 @@ const FuturisticObject = () => {
     if (innerRef.current) {
       innerRef.current.rotation.y -= delta * 0.5;
       innerRef.current.rotation.x -= delta * 0.5;
-      // Pulsating effect
       const scale = 1 + 0.1 * Math.sin(time * 2);
       innerRef.current.scale.set(scale, scale, scale);
     }
@@ -63,7 +147,6 @@ const FuturisticObject = () => {
 
   return (
     <group rotation-y={Math.PI / 4}>
-      {/* Outer Shell */}
       <TorusKnot ref={outerRef} args={[1.8, 0.5, 200, 32]}>
         <meshPhysicalMaterial
           roughness={0.05}
@@ -74,7 +157,6 @@ const FuturisticObject = () => {
           transparent
         />
       </TorusKnot>
-      {/* Inner Core */}
       <TorusKnot ref={innerRef} args={[0.8, 0.2, 100, 16]}>
         <meshStandardMaterial color="#00f5ff" emissive="#00f5ff" emissiveIntensity={4} />
       </TorusKnot>
@@ -288,11 +370,12 @@ const TimelineItem = ({ item, index }: { item: CareerEvent, index: number }) => 
 };
 
 
-// --- Main Portfolio Component ---
-const Portfolio = () => {
+// --- Main App Component ---
+const App = () => {
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isLoaded, setIsLoaded] = useState(false);
+  const isLoaded = showPortfolio; // Link isLoaded to showPortfolio state
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const projects: Project[] = [
@@ -381,6 +464,8 @@ const Portfolio = () => {
 
   // Particle effect
   useEffect(() => {
+    if (!isLoaded) return; // Only run when portfolio is shown
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -469,26 +554,27 @@ const Portfolio = () => {
     };
 
     animate();
-    setIsLoaded(true);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [isLoaded]);
 
   // Mouse follow effect
   useEffect(() => {
+    if (!isLoaded) return;
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [isLoaded]);
 
   // Section detection on scroll
   useEffect(() => {
+    if (!isLoaded) return;
     const handleScroll = () => {
       const sections = ['hero', 'about', 'skills', 'career', 'projects', 'contact'];
       const scrollPosition = window.scrollY + 100;
@@ -504,15 +590,18 @@ const Portfolio = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isLoaded]);
 
   const scrollToSection = (sectionId: string) => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  return (
-    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
+  if (!showPortfolio) {
+    return <LoadingAnimation onFinished={() => setShowPortfolio(true)} />;
+  }
 
+  return (
+    <div className="min-h-screen bg-black text-white relative overflow-x-hidden animate-fadeIn">
       <canvas
         ref={canvasRef}
         className="fixed inset-0 pointer-events-none z-0"
@@ -731,5 +820,4 @@ const Portfolio = () => {
   );
 };
 
-export default Portfolio;
-
+export default App;
