@@ -1,7 +1,103 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
-import { ChevronDown, Github, ExternalLink, Mail, Linkedin, Code2, Cpu, Database, Brain, Settings } from 'lucide-react';
+import { ChevronDown, Github, ExternalLink, Mail, Linkedin, Code2, Cpu, Database, Brain, Briefcase, GraduationCap, Cake } from 'lucide-react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, TorusKnot } from '@react-three/drei';
+import { Mesh } from 'three';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-// 型定義
+// --- Custom Hook for Scroll Animation ---
+const useAnimateOnScroll = (options?: IntersectionObserverInit) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Trigger animation only when element becomes visible
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          // Stop observing after the animation is triggered once
+          observer.unobserve(element);
+        }
+      },
+      options
+    );
+
+    observer.observe(element);
+
+    return () => {
+      if (element) {
+        observer.unobserve(element);
+      }
+    };
+  }, []);
+
+  return [ref, isVisible] as const;
+};
+
+// --- 3D Components ---
+const FuturisticObject = () => {
+  const outerRef = useRef<Mesh>(null!);
+  const innerRef = useRef<Mesh>(null!);
+
+  useFrame((state, delta) => {
+    const time = state.clock.getElapsedTime();
+    const mouseX = state.mouse.x;
+    const mouseY = state.mouse.y;
+
+    if (outerRef.current) {
+      outerRef.current.rotation.y += (mouseX - outerRef.current.rotation.y) * 0.05;
+      outerRef.current.rotation.x += (-mouseY - outerRef.current.rotation.x) * 0.05;
+    }
+    if (innerRef.current) {
+      innerRef.current.rotation.y -= delta * 0.5;
+      innerRef.current.rotation.x -= delta * 0.5;
+      // Pulsating effect
+      const scale = 1 + 0.1 * Math.sin(time * 2);
+      innerRef.current.scale.set(scale, scale, scale);
+    }
+  });
+
+  return (
+    <group rotation-y={Math.PI / 4}>
+      {/* Outer Shell */}
+      <TorusKnot ref={outerRef} args={[1.8, 0.5, 200, 32]}>
+        <meshPhysicalMaterial
+          roughness={0.05}
+          metalness={0.1}
+          transmission={1.0}
+          ior={1.33}
+          thickness={1.5}
+          transparent
+        />
+      </TorusKnot>
+      {/* Inner Core */}
+      <TorusKnot ref={innerRef} args={[0.8, 0.2, 100, 16]}>
+        <meshStandardMaterial color="#00f5ff" emissive="#00f5ff" emissiveIntensity={4} />
+      </TorusKnot>
+    </group>
+  );
+};
+
+const Scene3D = () => {
+  return (
+    <Canvas camera={{ position: [0, 0, 7] }}>
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} color="#00f5ff" intensity={3} />
+      <pointLight position={[-10, -10, -10]} color="#ff007f" intensity={3} />
+      <FuturisticObject />
+      <OrbitControls enableZoom={false} enablePan={false} />
+      <EffectComposer>
+        <Bloom intensity={0.8} luminanceThreshold={0.1} luminanceSmoothing={0.9} mipmapBlur />
+      </EffectComposer>
+    </Canvas>
+  );
+};
+
+// --- Type Definitions ---
 interface Project {
   id: number;
   title: string;
@@ -13,9 +109,17 @@ interface Project {
 }
 
 interface Skill {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   name: string;
   items: string[];
+}
+
+interface CareerEvent {
+  icon: React.ComponentType<{ className?: string }>;
+  date: string;
+  title: string;
+  company: string;
+  description: string;
 }
 
 interface Particle {
@@ -29,51 +133,253 @@ interface Particle {
   draw: (ctx: CanvasRenderingContext2D) => void;
 }
 
+// --- Reusable Components ---
+const GlitchText = ({ children, className = "" }: { children: ReactNode, className?: string }) => {
+  const [glitch, setGlitch] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGlitch(true);
+      setTimeout(() => setGlitch(false), 200);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className={`relative ${className}`}>
+      <div className={`transition-all duration-200 ${glitch ? 'animate-pulse' : ''}`}>
+        {children}
+      </div>
+      {glitch && (
+        <>
+          <div className="absolute top-0 left-0 text-red-500 opacity-70 transform translate-x-1" aria-hidden="true">
+            {children}
+          </div>
+          <div className="absolute top-0 left-0 text-cyan-500 opacity-70 transform -translate-x-1" aria-hidden="true">
+            {children}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const ProjectCard = ({ project, index }: { project: Project, index: number }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [cardRef, isVisible] = useAnimateOnScroll({ threshold: 0.1 });
+
+  return (
+    <div
+      ref={cardRef}
+      className={`group relative bg-gray-900/50 backdrop-blur-sm border border-cyan-500/20 rounded-lg overflow-hidden transition-all ease-out duration-700 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+      style={{ transitionDelay: `${index * 150}ms` }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="relative overflow-hidden">
+        <img
+          src={project.image}
+          alt={project.title}
+          className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+        <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <a
+            href={project.github}
+            aria-label={`${project.title} GitHub`}
+            className="p-2 bg-gray-800/80 rounded-full hover:bg-cyan-500/20 transition-colors"
+          >
+            <Github className="w-5 h-5 text-cyan-400" />
+          </a>
+          <a
+            href={project.live}
+            aria-label={`${project.title} Live Demo`}
+            className="p-2 bg-gray-800/80 rounded-full hover:bg-cyan-500/20 transition-colors"
+          >
+            <ExternalLink className="w-5 h-5 text-cyan-400" />
+          </a>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <h3 className="text-xl font-bold text-cyan-400 mb-3 group-hover:text-cyan-300 transition-colors">
+          {project.title}
+        </h3>
+        <p className="text-gray-300 mb-4 leading-relaxed">
+          {project.description}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {project.tech.map((tech) => (
+            <span
+              key={tech}
+              className="px-3 py-1 text-xs bg-cyan-500/10 text-cyan-400 rounded-full border border-cyan-500/20"
+            >
+              {tech}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {isHovered && (
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent transform -skew-x-12 animate-shimmer" />
+      )}
+    </div>
+  );
+};
+
+const SkillCard = ({ skill, index }: { skill: Skill, index: number }) => {
+  const IconComponent = skill.icon;
+  const [cardRef, isVisible] = useAnimateOnScroll({ threshold: 0.1 });
+
+  return (
+    <div
+      ref={cardRef}
+      className={`group bg-gray-800/50 backdrop-blur-sm p-6 rounded-lg border border-cyan-500/20 hover:border-cyan-500/50 transition-all ease-out duration-700 transform hover:transform hover:-translate-y-2 hover:shadow-xl hover:shadow-cyan-500/20 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+      style={{ transitionDelay: `${index * 150}ms` }}
+    >
+      <div className="text-center mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-500/10 rounded-lg mb-4 group-hover:bg-cyan-500/20 transition-colors">
+          <IconComponent className="w-8 h-8 text-cyan-400 group-hover:scale-110 transition-transform" />
+        </div>
+        <h3 className="text-xl font-bold text-white">{skill.name}</h3>
+      </div>
+      <div className="space-y-2">
+        {skill.items.map((item) => (
+          <div
+            key={item}
+            className="text-gray-300 text-sm p-2 bg-gray-700/30 rounded"
+          >
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const TimelineItem = ({ item, index }: { item: CareerEvent, index: number }) => {
+  const [itemRef, isVisible] = useAnimateOnScroll({ threshold: 0.5 });
+  const IconComponent = item.icon;
+  const isLeft = index % 2 === 0;
+
+  return (
+    <div ref={itemRef} className="relative">
+      <div className={`flex items-center ${isLeft ? 'flex-row-reverse' : ''}`}>
+        <div className={`w-1/2 ${isLeft ? 'text-right pr-8' : 'text-left pl-8'}`}>
+          <div
+            className={`bg-gray-800/50 backdrop-blur-sm border border-cyan-500/20 rounded-lg p-6 transition-all duration-700 ease-out transform hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/20 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 ' + (isLeft ? 'translate-x-12' : '-translate-x-12')}`}
+          >
+            <p className="text-sm text-cyan-400 mb-1">{item.date}</p>
+            <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
+            <p className="text-md text-gray-400 mb-3">{item.company}</p>
+            <p className="text-sm text-gray-300 leading-relaxed">{item.description}</p>
+          </div>
+        </div>
+        <div className="w-1/2 flex justify-center">
+          <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-cyan-500 rounded-full border-4 border-gray-900" />
+          <div className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center transition-transform duration-500 ${isVisible ? 'scale-100' : 'scale-0'}`}>
+            <IconComponent className="w-5 h-5 text-cyan-400" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- Main Portfolio Component ---
 const Portfolio = () => {
   const [activeSection, setActiveSection] = useState('hero');
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // プロジェクトデータ
   const projects: Project[] = [
     {
       id: 1,
-      title: "AI-Powered Dashboard",
-      description: "機械学習を活用したリアルタイム分析ダッシュボード。データの可視化と予測分析機能を搭載。",
+      title: "sticky-flow",
+      description: "オンライン付箋ツール。リアルタイムコラボレーションを搭載。",
       tech: ["React", "Python", "TensorFlow", "D3.js"],
-      github: "#",
-      live: "#",
-      image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect width='400' height='250' fill='%23000'/%3E%3Ccircle cx='100' cy='125' r='30' fill='%2300f5ff' opacity='0.6'/%3E%3Ccircle cx='200' cy='80' r='25' fill='%23ff007f' opacity='0.6'/%3E%3Ccircle cx='300' cy='150' r='35' fill='%2300ff88' opacity='0.6'/%3E%3Cpath d='M100 125 L200 80 L300 150' stroke='%23fff' stroke-width='2' fill='none' opacity='0.8'/%3E%3C/svg%3E"
+      github: "https://github.com/hatamame/stickey-flow",
+      live: "https://stickey-flow.vercel.app/",
+      image: "img/sticky-flow.png"
     },
     {
       id: 2,
-      title: "Blockchain Voting System",
-      description: "セキュアな投票システム。ブロックチェーン技術により透明性と改ざん防止を実現。",
+      title: "SUDOKU",
+      description: "オンライン数独ゲーム。デイリーチャレンジによる無限の楽しみ方。",
       tech: ["Solidity", "Web3.js", "React", "Node.js"],
-      github: "#",
-      live: "#",
-      image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect width='400' height='250' fill='%23111'/%3E%3Cg%3E%3Crect x='50' y='50' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3Crect x='160' y='50' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3Crect x='270' y='50' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3Crect x='50' y='150' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3Crect x='160' y='150' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3Crect x='270' y='150' width='80' height='50' fill='%23333' stroke='%2300ff88' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E"
+      github: "https://github.com/hatamame/sudoku-game",
+      live: "https://sudoku-game-ten-fawn.vercel.app/",
+      image: "img/SUDOKU.png"
     },
     {
       id: 3,
-      title: "Real-time Chat App",
-      description: "WebSocketを使用したリアルタイムチャットアプリ。暗号化通信とファイル共有機能付き。",
+      title: "html-practice-course",
+      description: "WebSocketを使用したリアルタイムHTML学習プラットフォーム。",
       tech: ["React", "Socket.io", "Node.js", "MongoDB"],
-      github: "#",
-      live: "#",
-      image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect width='400' height='250' fill='%23000'/%3E%3Crect x='50' y='50' width='300' height='150' fill='%23111' stroke='%2300f5ff' stroke-width='2'/%3E%3Crect x='70' y='70' width='200' height='20' fill='%2300f5ff' opacity='0.3'/%3E%3Crect x='70' y='100' width='150' height='20' fill='%23ff007f' opacity='0.3'/%3E%3Crect x='70' y='130' width='180' height='20' fill='%2300ff88' opacity='0.3'/%3E%3Ccircle cx='320' cy='80' r='15' fill='%2300f5ff'/%3E%3C/svg%3E"
+      github: "https://github.com/hatamame/HTML-practice-course",
+      live: "https://html-practice-course-nu.vercel.app/",
+      image: "img/html-practice-course.png"
+    },
+    {
+      id: 4,
+      title: "AI競馬予想アプリ",
+      description: "OpenAI APIと機械学習を活用した競馬予想アプリ。",
+      tech: ["React", "TypeScript", "OpenAI API", "Tailwind CSS"],
+      github: "https://github.com/hatamame/horserace",
+      live: "https://horserace-nine.vercel.app/",
+      image: "img/keiba-app.png"
     }
   ];
 
   const skills: Skill[] = [
     { icon: Code2, name: "Frontend", items: ["React", "TypeScript", "Vue.js", "Next.js"] },
-    { icon: Database, name: "Backend", items: ["Node.js", "Python", "PostgreSQL", "MongoDB"] },
+    { icon: Database, name: "Backend", items: ["Node.js", "Python", "PostgreSQL", "supabase", "firebase"] },
     { icon: Cpu, name: "DevOps", items: ["Docker", "AWS", "CI/CD", "Kubernetes"] },
     { icon: Brain, name: "AI/ML", items: ["TensorFlow", "PyTorch", "OpenAI API", "Computer Vision"] },
   ];
 
-  // パーティクル効果
+  const careerHistory: CareerEvent[] = [
+    {
+      icon: Cake,
+      date: "2002/04/24",
+      title: "誕生",
+      company: "千葉県船橋市",
+      description: "千葉県船橋市で誕生。幼少期からテクノロジーに興味を持つ。",
+    },
+    {
+      icon: GraduationCap,
+      date: "2009 - 2015",
+      title: "小学校卒業",
+      company: "船橋市立船橋小学校",
+      description: "地元の小学校で基礎学力と協調性を養う。",
+    },
+    {
+      icon: GraduationCap,
+      date: "2015 - 2021",
+      title: "中学・高校卒業",
+      company: "芝中学・高等学校",
+      description: "プログラミングを始め、初めてコードを書く。デザインと技術の融合に興味を持つ。",
+    },
+    {
+      icon: GraduationCap,
+      date: "2021 - 2025",
+      title: "学士(外国研究)取得",
+      company: "上智大学",
+      description: "ロシア語を専攻しつつ、データ構造、アルゴリズム、ソフトウェア工学の基礎を学ぶ。",
+    },
+    {
+      icon: Briefcase,
+      date: "2025 - ",
+      title: "現職",
+      company: "日本トーター株式会社",
+      description: "Webアプリケーションのフロントエンド開発を担当。ReactとTypeScriptを使用し、UIコンポーネントの実装とテストに従事。",
+    },
+  ];
+
+  // Particle effect
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -130,6 +436,7 @@ const Portfolio = () => {
       particles.push(new ParticleImpl());
     }
 
+    let animationFrameId: number;
     const animate = () => {
       if (!ctx || !canvas) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -139,7 +446,6 @@ const Portfolio = () => {
         particle.draw(ctx);
       });
 
-      // パーティクル間の接続線
       particles.forEach((particle, i) => {
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
@@ -159,7 +465,7 @@ const Portfolio = () => {
         }
       });
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     };
 
     animate();
@@ -167,10 +473,11 @@ const Portfolio = () => {
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
-  // マウス追従効果
+  // Mouse follow effect
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -180,10 +487,10 @@ const Portfolio = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // スクロールによるセクション検出
+  // Section detection on scroll
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['hero', 'about', 'skills', 'projects', 'contact'];
+      const sections = ['hero', 'about', 'skills', 'career', 'projects', 'contact'];
       const scrollPosition = window.scrollY + 100;
 
       for (const sectionId of sections) {
@@ -203,107 +510,15 @@ const Portfolio = () => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const GlitchText = ({ children, className = "" }: { children: ReactNode, className?: string }) => {
-    const [glitch, setGlitch] = useState(false);
-
-    useEffect(() => {
-      const interval = setInterval(() => {
-        setGlitch(true);
-        setTimeout(() => setGlitch(false), 200);
-      }, 3000);
-
-      return () => clearInterval(interval);
-    }, []);
-
-    return (
-      <div className={`relative ${className}`}>
-        <div className={`transition-all duration-200 ${glitch ? 'animate-pulse' : ''}`}>
-          {children}
-        </div>
-        {glitch && (
-          <>
-            <div className="absolute top-0 left-0 text-red-500 opacity-70 transform translate-x-1">
-              {children}
-            </div>
-            <div className="absolute top-0 left-0 text-cyan-500 opacity-70 transform -translate-x-1">
-              {children}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const ProjectCard = ({ project, index }: { project: Project, index: number }) => {
-    const [isHovered, setIsHovered] = useState(false);
-
-    return (
-      <div
-        className={`group relative bg-gray-900/50 backdrop-blur-sm border border-cyan-500/20 rounded-lg overflow-hidden hover:border-cyan-500/50 transition-all duration-500 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 ${isLoaded ? 'animate-slideUp' : ''
-          }`}
-        style={{ animationDelay: `${index * 200}ms` }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <div className="relative overflow-hidden">
-          <img
-            src={project.image}
-            alt={project.title}
-            className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <a
-              href={project.github}
-              className="p-2 bg-gray-800/80 rounded-full hover:bg-cyan-500/20 transition-colors"
-            >
-              <Github className="w-5 h-5 text-cyan-400" />
-            </a>
-            <a
-              href={project.live}
-              className="p-2 bg-gray-800/80 rounded-full hover:bg-cyan-500/20 transition-colors"
-            >
-              <ExternalLink className="w-5 h-5 text-cyan-400" />
-            </a>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <h3 className="text-xl font-bold text-cyan-400 mb-3 group-hover:text-cyan-300 transition-colors">
-            {project.title}
-          </h3>
-          <p className="text-gray-300 mb-4 leading-relaxed">
-            {project.description}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {project.tech.map((tech, i) => (
-              <span
-                key={i}
-                className="px-3 py-1 text-xs bg-cyan-500/10 text-cyan-400 rounded-full border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors"
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* ホバー時の光の効果 */}
-        {isHovered && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent transform -skew-x-12 animate-shimmer" />
-        )}
-      </div>
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* 背景パーティクル */}
+    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
+
       <canvas
         ref={canvasRef}
         className="fixed inset-0 pointer-events-none z-0"
+        aria-hidden="true"
       />
 
-      {/* マウス追従グラデーション */}
       <div
         className="fixed w-96 h-96 rounded-full opacity-20 pointer-events-none z-0 transition-all duration-1000 ease-out"
         style={{
@@ -311,21 +526,21 @@ const Portfolio = () => {
           left: mousePosition.x - 192,
           top: mousePosition.y - 192,
         }}
+        aria-hidden="true"
       />
 
-      {/* ナビゲーション */}
       <nav className="fixed top-0 w-full z-50 bg-black/20 backdrop-blur-lg border-b border-cyan-500/20">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <div className="text-2xl font-bold">
+            <a href="#hero" className="text-2xl font-bold">
               <GlitchText>
                 <span className="text-cyan-400">{'<'}</span>
                 <span className="text-white">DevName</span>
                 <span className="text-cyan-400">{'/>'}</span>
               </GlitchText>
-            </div>
+            </a>
             <div className="hidden md:flex space-x-8">
-              {['about', 'skills', 'projects', 'contact'].map((item) => (
+              {['about', 'skills', 'career', 'projects', 'contact'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -334,7 +549,7 @@ const Portfolio = () => {
                 >
                   {item}
                   {activeSection === item && (
-                    <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-cyan-400 animate-pulse" />
+                    <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-cyan-400" />
                   )}
                 </button>
               ))}
@@ -343,241 +558,178 @@ const Portfolio = () => {
         </div>
       </nav>
 
-      {/* ヒーローセクション */}
-      <section id="hero" className="min-h-screen flex items-center justify-center relative z-10">
-        <div className="text-center max-w-4xl mx-auto px-6">
-          <div className={`transition-all duration-1000 ${isLoaded ? 'animate-fadeInUp' : 'opacity-0'}`}>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              <GlitchText>
-                <span className="text-cyan-400">Full Stack</span>
-                <br />
-                <span className="text-white">Developer</span>
-              </GlitchText>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
-              最新技術で革新的なWebアプリケーションを創造
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => scrollToSection('projects')}
-                className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"
-              >
-                プロジェクトを見る
-              </button>
-              <button
-                onClick={() => scrollToSection('contact')}
-                className="px-8 py-3 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 font-semibold rounded-lg transition-all duration-300 transform hover:-translate-y-1"
-              >
-                お問い合わせ
-              </button>
+      <main>
+        <section id="hero" className="min-h-screen flex items-center justify-center relative z-10">
+          <div className="text-center max-w-4xl mx-auto px-6">
+            <div className={`transition-opacity duration-1000 ${isLoaded ? 'opacity-100 animate-fadeInUp' : 'opacity-0'}`}>
+              <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                <GlitchText>
+                  <span className="text-cyan-400">Full Stack</span>
+                  <br />
+                  <span className="text-white">Developer</span>
+                </GlitchText>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
+                最新技術で革新的なWebアプリケーションを創造
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={() => scrollToSection('projects')}
+                  className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"
+                >
+                  プロジェクトを見る
+                </button>
+                <button
+                  onClick={() => scrollToSection('contact')}
+                  className="px-8 py-3 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 font-semibold rounded-lg transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  お問い合わせ
+                </button>
+              </div>
             </div>
+            <button
+              onClick={() => scrollToSection('about')}
+              className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce"
+              aria-label="Scroll to about section"
+            >
+              <ChevronDown className="w-8 h-8 text-cyan-400" />
+            </button>
           </div>
-          <button
-            onClick={() => scrollToSection('about')}
-            className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce"
-          >
-            <ChevronDown className="w-8 h-8 text-cyan-400" />
-          </button>
-        </div>
-      </section>
+        </section>
 
-      {/* About セクション */}
-      <section id="about" className="py-20 relative z-10">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">About Me</h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto" />
-          </div>
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-white mb-4">
-                革新的な技術で未来を創造
-              </h3>
-              <p className="text-gray-300 leading-relaxed">
-                フルスタック開発者として、最新のWeb技術とAI技術を駆使して、
-                ユーザーエクスペリエンスを重視した革新的なアプリケーションを開発しています。
-              </p>
-              <p className="text-gray-300 leading-relaxed">
-                常に新しい技術を学び続け、クリーンなコードと効率的なソリューションを
-                提供することで、ビジネス価値の最大化を目指しています。
-              </p>
-              <div className="flex space-x-6 pt-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-400">5+</div>
-                  <div className="text-gray-400">Years Experience</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-400">50+</div>
-                  <div className="text-gray-400">Projects</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-400">20+</div>
-                  <div className="text-gray-400">Technologies</div>
+        <section id="about" className="py-20 bg-gray-900/30 relative z-10">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">About Me</h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto" />
+            </div>
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="space-y-6">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  革新的な技術で未来を創造
+                </h3>
+                <p className="text-gray-300 leading-relaxed">
+                  フルスタック開発者として、最新のWeb技術とAI技術を駆使して、
+                  ユーザーエクスペリエンスを重視した革新的なアプリケーションを開発しています。
+                </p>
+                <p className="text-gray-300 leading-relaxed">
+                  常に新しい技術を学び続け、クリーンなコードと効率的なソリューションを
+                  提供することで、ビジネス価値の最大化を目指しています。
+                </p>
+                <div className="flex space-x-6 pt-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-cyan-400">5+</div>
+                    <div className="text-gray-400">Years Experience</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-cyan-400">50+</div>
+                    <div className="text-gray-400">Projects</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-cyan-400">20+</div>
+                    <div className="text-gray-400">Technologies</div>
+                  </div>
                 </div>
               </div>
+              <div className="relative flex justify-center items-center w-80 h-80 cursor-grab active:cursor-grabbing">
+                <Scene3D />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="skills" className="py-20 bg-gray-900/30 relative z-10">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Technical Skills</h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto" />
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {skills.map((skill, index) => (
+                <SkillCard key={skill.name} skill={skill} index={index} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="career" className="py-20 relative z-10">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Career Path</h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto" />
             </div>
             <div className="relative">
-              <div className="w-80 h-80 mx-auto relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full opacity-20 animate-pulse" />
-                <div className="absolute inset-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full opacity-30 animate-pulse" style={{ animationDelay: '1s' }} />
-                <div className="absolute inset-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full opacity-40 animate-pulse" style={{ animationDelay: '2s' }} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Settings className="w-16 h-16 text-cyan-400 animate-spin" style={{ animationDuration: '8s' }} />
-                </div>
+              <div className="absolute left-1/2 top-0 h-full w-0.5 bg-cyan-500/30" />
+              <div className="space-y-16">
+                {careerHistory.map((item, index) => (
+                  <TimelineItem key={index} item={item} index={index} />
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Skills セクション */}
-      <section id="skills" className="py-20 bg-gray-900/30 relative z-10">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Technical Skills</h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto" />
+        <section id="projects" className="py-20 relative z-10">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Featured Projects</h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto mb-6" />
+              <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+                最新技術を活用したプロジェクトをご紹介します
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {projects.map((project, index) => (
+                <ProjectCard key={project.id} project={project} index={index} />
+              ))}
+            </div>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {skills.map((skill, index) => {
-              const IconComponent = skill.icon;
-              return (
-                <div
-                  key={skill.name}
-                  className={`group bg-gray-800/50 backdrop-blur-sm p-6 rounded-lg border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-500 hover:transform hover:-translate-y-2 hover:shadow-xl hover:shadow-cyan-500/20 ${isLoaded ? 'animate-slideUp' : 'opacity-0'
-                    }`}
-                  style={{ animationDelay: `${index * 200}ms` }}
-                >
-                  <div className="text-center mb-4">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-500/10 rounded-lg mb-4 group-hover:bg-cyan-500/20 transition-colors">
-                      <IconComponent className="w-8 h-8 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white">{skill.name}</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {skill.items.map((item, i) => (
-                      <div
-                        key={i}
-                        className="text-gray-300 text-sm p-2 bg-gray-700/30 rounded hover:bg-gray-700/50 transition-colors"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Projects セクション */}
-      <section id="projects" className="py-20 relative z-10">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Featured Projects</h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto mb-6" />
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-              最新技術を活用した革新的なプロジェクトをご紹介します
+        <section id="contact" className="py-20 bg-gray-900/30 relative z-10">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Get In Touch</h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto mb-8" />
+            <p className="text-gray-300 text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
+              新しいプロジェクトのご相談や技術的なディスカッションなど、
+              お気軽にお声がけください。素晴らしいものを創造しましょう。
             </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
+              <a
+                href="mailto:haruta_tsukada@totor.co.jp"
+                className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
+              >
+                <Mail className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span className="text-cyan-400">haruta_tsukada@totor.co.jp</span>
+              </a>
+              <a
+                href="https://github.com/hatamame"
+                className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
+              >
+                <Github className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span className="text-cyan-400">GitHub</span>
+              </a>
+              <a
+                href="https://linkedin.com"
+                className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
+              >
+                <Linkedin className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span className="text-cyan-400">LinkedIn</span>
+              </a>
+            </div>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project, index) => (
-              <ProjectCard key={project.id} project={project} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* Contact セクション */}
-      <section id="contact" className="py-20 bg-gray-900/30 relative z-10">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">Get In Touch</h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto mb-8" />
-          <p className="text-gray-300 text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
-            新しいプロジェクトのご相談や技術的なディスカッションなど、
-            お気軽にお声がけください。一緒に素晴らしいものを創造しましょう。
-          </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
-            <a
-              href="mailto:contact@example.com"
-              className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
-            >
-              <Mail className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span className="text-cyan-400">contact@example.com</span>
-            </a>
-            <a
-              href="https://github.com"
-              className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
-            >
-              <Github className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span className="text-cyan-400">GitHub</span>
-            </a>
-            <a
-              href="https://linkedin.com"
-              className="flex items-center space-x-3 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1 group"
-            >
-              <Linkedin className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span className="text-cyan-400">LinkedIn</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* フッター */}
       <footer className="py-8 border-t border-gray-800 relative z-10">
         <div className="max-w-6xl mx-auto px-6 text-center text-gray-400">
-          <p>&copy; 2024 DevName Portfolio. All rights reserved.</p>
+          <p>&copy; 2025 haruta tsukada. All rights reserved.</p>
           <p className="mt-2 text-sm">Made with ❤️ using React, TypeScript & Tailwind CSS</p>
         </div>
       </footer>
-
-      {/* カスタムCSS */}
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes shimmer {
-          0% {
-            transform: translateX(-100%) skewX(-12deg);
-          }
-          100% {
-            transform: translateX(200%) skewX(-12deg);
-          }
-        }
-
-        .animate-fadeInUp {
-          animation: fadeInUp 1s ease-out;
-        }
-
-        .animate-slideUp {
-          animation: slideUp 0.8s ease-out forwards;
-        }
-
-        .animate-shimmer {
-          animation: shimmer 2s ease-in-out;
-        }
-      `}</style>
     </div>
   );
 };
 
 export default Portfolio;
+
