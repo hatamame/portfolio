@@ -9,7 +9,7 @@ const Contact = () => {
         <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 mx-auto mb-8" />
         <p className="text-gray-300 text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
           新しいプロジェクトのご相談や技術的なディスカッションなど、
-          お気軽にお声がけください。素晴らしいものを創造しましょう。
+          お気軽にご連絡ください。素晴らしいものを創造しましょう。
         </p>
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
           <a

@@ -22,7 +22,7 @@ const LoadingAnimation: FC<{ onFinished: () => void }> = ({ onFinished }) => {
     const runSequence = (index: number) => {
       if (index >= loadingSequence.length) {
         setIsExiting(true);
-        exitTimeout = window.setTimeout(onFinished, 1000); // Fade out duration
+        exitTimeout = window.setTimeout(onFinished, 1000);
         return;
       }
 

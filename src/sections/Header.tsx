@@ -1,4 +1,3 @@
-
 import GlitchText from '../components/GlitchText';
 
 interface HeaderProps {
@@ -19,7 +18,7 @@ const Header = ({ activeSection, scrollToSection }: HeaderProps) => {
             </GlitchText>
           </a>
           <div className="hidden md:flex space-x-8">
-            {['about', 'skills', 'career', 'projects', 'contact'].map((item) => (
+            {['about', 'skills', 'career', 'projects', 'game', 'contact'].map((item) => ( // 'game' を追加
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 // Components
@@ -11,6 +10,7 @@ import About from './sections/About';
 import Skills from './sections/Skills';
 import Career from './sections/Career';
 import Projects from './sections/Projects';
+import Game from './sections/Game';
 import Contact from './sections/Contact';
 import Footer from './sections/Footer';
 
@@ -38,7 +38,7 @@ const App = () => {
   useEffect(() => {
     if (!isLoaded) return;
     const handleScroll = () => {
-      const sections = ['hero', 'about', 'skills', 'career', 'projects', 'contact'];
+      const sections = ['hero', 'about', 'skills', 'career', 'projects', 'game', 'contact']; // 'game' を追加
       const scrollPosition = window.scrollY + 100;
 
       for (const sectionId of sections) {
@@ -84,6 +84,7 @@ const App = () => {
         <Skills />
         <Career />
         <Projects />
+        <Game /> {/* 追加 */}
         <Contact />
       </main>
 
