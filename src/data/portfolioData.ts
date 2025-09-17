@@ -1,4 +1,3 @@
-
 import { Code2, Database, Cpu, Brain, Briefcase, GraduationCap, Cake } from 'lucide-react';
 import type { Project, Skill, CareerEvent } from '../types';
 
@@ -54,7 +53,7 @@ export const careerHistory: CareerEvent[] = [
     date: "2002/04/24",
     title: "誕生",
     company: "千葉県船橋市",
-    description: "千葉県船橋市で誕生。幼少期からテクノロジーに興味を持つ。",
+    description: "千葉県船橋市で誕生。\n幼少期からテクノロジーに興味を持つ。",
   },
   {
     icon: GraduationCap,
@@ -68,7 +67,7 @@ export const careerHistory: CareerEvent[] = [
     date: "2015 - 2021",
     title: "中学・高校卒業",
     company: "芝中学・高等学校",
-    description: "プログラミングを始め、初めてコードを書く。デザインと技術の融合に興味を持つ。",
+    description: "プログラミングを始め、初めてコードを書く。\nデザインと技術の融合に興味を持つ。",
   },
   {
     icon: GraduationCap,
@@ -82,6 +81,6 @@ export const careerHistory: CareerEvent[] = [
     date: "2025 - ",
     title: "現職",
     company: "日本トーター株式会社",
-    description: "Webアプリケーションのフロントエンド開発を担当。ReactとTypeScriptを使用し、UIコンポーネントの実装とテストに従事。",
+    description: "Webアプリケーションのフロントエンド開発を担当。\nReactとTypeScriptを使用し、UIコンポーネントの実装とテストに従事。",
   },
 ];

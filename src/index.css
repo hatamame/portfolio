@@ -235,3 +235,44 @@ body {
 .animate-spin-once {
   animation: spin-once 0.8s ease-out forwards;
 }
+
+/* --- 隠しボタンのアニメーション --- */
+@keyframes secret-button-float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes secret-button-appear {
+  0% {
+    transform: scale(0) rotate(-360deg);
+    opacity: 0;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 1));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 30px rgba(34, 211, 238, 1));
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.8));
+  }
+}
+
+.animate-secret-button-float {
+  animation: secret-button-float 4s ease-in-out infinite;
+}
+
+.animate-secret-button-appear {
+  animation: secret-button-appear 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

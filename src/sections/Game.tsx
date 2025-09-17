@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, FC } from 'react';
 import { Gamepad2 } from 'lucide-react';
+import { stageLayouts } from '../data/stageData';
 
 // Particle interface for explosions
 interface Particle {
@@ -20,10 +21,15 @@ interface Brick {
     color: string;
 }
 
-const Game = () => {
+interface GameProps {
+    setGameCompleted: (completed: boolean) => void;
+}
+
+const Game: FC<GameProps> = ({ setGameCompleted }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [gameState, setGameState] = useState<'waiting' | 'playing' | 'gameOver' | 'cleared'>('waiting');
     const [score, setScore] = useState(0);
+    const [currentStage, setCurrentStage] = useState(1);
     const gameLoopRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -51,8 +57,6 @@ const Game = () => {
         const paddleWidth = 120;
         let paddleX = (canvas.width - paddleWidth) / 2;
 
-        const brickRowCount = 6;
-        const brickColumnCount = 9;
         const brickWidth = 65;
         const brickHeight = 20;
         const brickPadding = 10;
@@ -66,8 +70,7 @@ const Game = () => {
         let particles: Particle[] = [];
 
         // --- Game Initialization ---
-        const initGame = () => {
-            setScore(0);
+        const initGame = (stage: number) => {
             x = canvas.width / 2;
             y = canvas.height - 50;
             paddleX = (canvas.width - paddleWidth) / 2;
@@ -76,23 +79,29 @@ const Game = () => {
             dy = -ballSpeed * Math.sin(angle);
 
             bricks = [];
+            const layout = stageLayouts[stage - 1];
+            const brickRowCount = layout.length;
+            const brickColumnCount = layout[0].length;
+
             for (let c = 0; c < brickColumnCount; c++) {
                 bricks[c] = [];
                 for (let r = 0; r < brickRowCount; r++) {
-                    const health = r < 2 ? 2 : 1; // Top two rows are stronger
-                    bricks[c][r] = {
-                        x: 0,
-                        y: 0,
-                        status: 1,
-                        health: health,
-                        color: health > 1 ? "#ff007f" : "#00f5ff"
-                    };
+                    const health = layout[r][c];
+                    if (health > 0) {
+                        bricks[c][r] = {
+                            x: 0,
+                            y: 0,
+                            status: 1,
+                            health: health,
+                            color: health === 3 ? "#E040FB" : health === 2 ? "#ff007f" : "#00f5ff"
+                        };
+                    }
                 }
             }
         }
 
-        if (gameState === 'playing' && score === 0) {
-            initGame();
+        if (gameState === 'playing' && score === 0 && currentStage === 1) {
+            initGame(currentStage);
         }
 
         // --- Event Handlers ---
@@ -129,10 +138,10 @@ const Game = () => {
         // --- Collision Detection ---
         const collisionDetection = () => {
             let allBricksDestroyed = true;
-            for (let c = 0; c < brickColumnCount; c++) {
-                for (let r = 0; r < brickRowCount; r++) {
+            for (let c = 0; c < bricks.length; c++) {
+                for (let r = 0; r < bricks[c].length; r++) {
                     const b = bricks[c][r];
-                    if (b.status === 1) {
+                    if (b && b.status === 1) {
                         allBricksDestroyed = false;
                         if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
                             dy = -dy;
@@ -141,9 +150,9 @@ const Game = () => {
                             if (b.health <= 0) {
                                 b.status = 0;
                                 createParticles(b);
-                                setScore(s => s + (r < 2 ? 20 : 10)); // More points for stronger bricks
+                                setScore(s => s + (b.color === "#E040FB" ? 30 : b.color === "#ff007f" ? 20 : 10)); // More points for stronger bricks
                             } else {
-                                b.color = "#f7ff00";
+                                b.color = b.health === 2 ? "#ff007f" : "#f7ff00"; // Update color based on remaining health
                                 setScore(s => s + 5);
                             }
                         }
@@ -179,7 +188,10 @@ const Game = () => {
         };
 
         const drawBricks = () => {
+            if (!bricks.length) return;
+            const brickColumnCount = bricks.length;
             for (let c = 0; c < brickColumnCount; c++) {
+                const brickRowCount = bricks[c].length;
                 for (let r = 0; r < brickRowCount; r++) {
                     if (bricks[c][r] && bricks[c][r].status === 1) {
                         const b = bricks[c][r];
@@ -275,6 +287,7 @@ const Game = () => {
         };
 
         if (gameState === 'playing') {
+            initGame(currentStage);
             draw();
         } else {
             ctx.fillStyle = 'rgba(0, 0, 0, 1)';
@@ -288,12 +301,21 @@ const Game = () => {
             document.removeEventListener("keydown", keyDownHandler);
             document.removeEventListener("keyup", keyUpHandler);
         };
-    }, [gameState]);
+    }, [gameState, currentStage]);
 
     const startGame = () => {
         setScore(0);
+        setCurrentStage(1);
+        setGameCompleted(false);
         setGameState('playing');
     };
+
+    const nextStage = () => {
+        if (currentStage < 3) {
+            setCurrentStage(s => s + 1);
+            setGameState('playing');
+        }
+    }
 
     const renderGameStateOverlay = () => {
         if (gameState === 'waiting') {
@@ -325,18 +347,34 @@ const Game = () => {
             );
         }
         if (gameState === 'cleared') {
-            return (
-                <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center backdrop-blur-sm">
-                    <h3 className="text-5xl font-bold text-cyan-400 mb-4 animate-pulse">GAME CLEARED!</h3>
-                    <p className="text-white text-xl mb-8">お見事！ SCORE: {score}</p>
-                    <button
-                        onClick={startGame}
-                        className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"
-                    >
-                        もう一度プレイ
-                    </button>
-                </div>
-            );
+            if (currentStage < 3) {
+                return (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center backdrop-blur-sm">
+                        <h3 className="text-5xl font-bold text-cyan-400 mb-4 animate-pulse">STAGE {currentStage} CLEARED!</h3>
+                        <p className="text-white text-xl mb-8">SCORE: {score}</p>
+                        <button
+                            onClick={nextStage}
+                            className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"
+                        >
+                            次のステージへ
+                        </button>
+                    </div>
+                );
+            } else {
+                setGameCompleted(true);
+                return (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center backdrop-blur-sm">
+                        <h3 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">ALL STAGES CLEARED!</h3>
+                        <p className="text-white text-xl mb-8">素晴らしい！ TOTAL SCORE: {score}</p>
+                        <button
+                            onClick={startGame}
+                            className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"
+                        >
+                            もう一度プレイ
+                        </button>
+                    </div>
+                );
+            }
         }
         return null;
     };
@@ -360,6 +398,9 @@ const Game = () => {
                     {renderGameStateOverlay()}
                     <div className="absolute top-4 right-4 text-white font-mono text-2xl z-10">
                         SCORE: <span className="text-cyan-400 font-bold">{score}</span>
+                    </div>
+                    <div className="absolute top-4 left-4 text-white font-mono text-2xl z-10">
+                        STAGE: <span className="text-cyan-400 font-bold">{currentStage} / 3</span>
                     </div>
                 </div>
                 <p className="text-center mt-8 text-gray-400">

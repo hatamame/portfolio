@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 
 // Components
 import LoadingAnimation from './components/LoadingAnimation';
+import HiddenContent from './components/HiddenContent';
+import SecretButton from './components/SecretButton';
+
 
 // Sections
 import Header from './sections/Header';
@@ -22,6 +25,8 @@ const App = () => {
   const [activeSection, setActiveSection] = useState('hero');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [showHiddenPage, setShowHiddenPage] = useState(false);
   const isLoaded = showPortfolio;
 
   // Mouse follow effect
@@ -69,6 +74,10 @@ const App = () => {
     return <LoadingAnimation onFinished={() => setShowPortfolio(true)} />;
   }
 
+  if (showHiddenPage) {
+    return <HiddenContent backToPortfolio={() => setShowHiddenPage(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-black text-white relative overflow-x-hidden animate-fadeIn">
       <ParticleCanvas scrollProgress={scrollProgress} />
@@ -91,11 +100,12 @@ const App = () => {
         <Skills />
         <Career />
         <Projects />
-        <Game /> {/* 追加 */}
+        <Game setGameCompleted={setGameCompleted} />
         <Contact />
       </main>
 
       <Footer />
+      {gameCompleted && <SecretButton onClick={() => setShowHiddenPage(true)} />}
     </div>
   );
 };
