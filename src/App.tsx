@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react';
 
 // Components
-import LoadingAnimation from './components/LoadingAnimation';
-import HiddenContent from './components/HiddenContent';
-import SecretButton from './components/SecretButton';
+import LoadingAnimation from '@/components/LoadingAnimation';
+import HiddenContent from '@/components/HiddenContent';
+import SecretButton from '@/components/SecretButton';
+import SecretLoadingAnimation from '@/components/SecretLoadingAnimation';
 
 
 // Sections
-import Header from './sections/Header';
-import Hero from './sections/Hero';
-import About from './sections/About';
-import Skills from './sections/Skills';
-import Career from './sections/Career';
-import Projects from './sections/Projects';
-import Game from './sections/Game';
-import Contact from './sections/Contact';
-import Footer from './sections/Footer';
+import Header from '@/sections/Header';
+import Hero from '@/sections/Hero';
+import About from '@/sections/About';
+import Skills from '@/sections/Skills';
+import Career from '@/sections/Career';
+import Projects from '@/sections/Projects';
+import Game from '@/sections/Game';
+import Contact from '@/sections/Contact';
+import Footer from '@/sections/Footer';
 
 // Canvas
-import ParticleCanvas from './canvas/ParticleCanvas';
+import ParticleCanvas from '@/canvas/ParticleCanvas';
 
 const App = () => {
   const [showPortfolio, setShowPortfolio] = useState(false);
@@ -27,6 +28,7 @@ const App = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [gameCompleted, setGameCompleted] = useState(false);
   const [showHiddenPage, setShowHiddenPage] = useState(false);
+  const [showSecretLoading, setShowSecretLoading] = useState(false);
   const isLoaded = showPortfolio;
 
   // Mouse follow effect
@@ -74,6 +76,18 @@ const App = () => {
     return <LoadingAnimation onFinished={() => setShowPortfolio(true)} />;
   }
 
+  if (showSecretLoading) {
+    return (
+      <SecretLoadingAnimation
+        onFinished={() => {
+          setShowSecretLoading(false);
+          setShowHiddenPage(true);
+        }}
+        onCancel={() => setShowSecretLoading(false)}
+      />
+    );
+  }
+
   if (showHiddenPage) {
     return <HiddenContent backToPortfolio={() => setShowHiddenPage(false)} />;
   }
@@ -105,7 +119,7 @@ const App = () => {
       </main>
 
       <Footer />
-      {gameCompleted && <SecretButton onClick={() => setShowHiddenPage(true)} />}
+      {gameCompleted && <SecretButton onClick={() => setShowSecretLoading(true)} />}
     </div>
   );
 };

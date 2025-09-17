@@ -1,45 +1,224 @@
-import { FC } from 'react';
-import GlitchText from './GlitchText';
-import BootingText from './BootingText';
+import { useState, useEffect, useRef, FC, KeyboardEvent } from 'react';
+import { fileSystem } from '../data/secretData';
+
+// 型定義
+type Directory = { [key: string]: string | Directory };
+
+// 非同期処理で待機するためのヘルパー関数
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface HiddenContentProps {
     backToPortfolio: () => void;
 }
 
-const HiddenContent: FC<HiddenContentProps> = ({ backToPortfolio }) => {
-    const contentText = `Congratulations, Explorer. You have demonstrated exceptional skill and persistence.
-This portfolio is merely the gateway.
-My true work involves crafting the digital universes of tomorrow.
-The boundaries of reality are blurring, and I am one of the architects.
-If you wish to collaborate on projects that redefine what's possible, you know how to reach me.`;
+const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
+    const [history, setHistory] = useState<string[]>([]);
+    const [input, setInput] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const terminalRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const isMounted = useRef(false);
+
+    // 起動時のシーケンス
+    useEffect(() => {
+        isMounted.current = true;
+        const bootSequence = async () => {
+            if (!isMounted.current) return;
+            setIsProcessing(true);
+            setHistory([]);
+            await sleep(500);
+            if (!isMounted.current) return;
+            await typeLine("Welcome to my secret terminal.");
+            await sleep(500);
+            if (!isMounted.current) return;
+            await typeLine("Type 'help' to see available commands.");
+            if (!isMounted.current) return;
+            setHistory(prev => [...prev, '']);
+            setIsProcessing(false);
+        };
+        bootSequence();
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
+    // ターミナルに1行ずつテキストをタイプ表示する関数
+    const typeLine = async (text: string, speed: number = 25) => {
+        setHistory(prev => [...prev, '']);
+        let line = '';
+        for (let i = 0; i < text.length; i++) {
+            if (!isMounted.current) return;
+            line += text[i];
+            setHistory(prev => [...prev.slice(0, -1), line]);
+            await sleep(speed);
+        }
+    };
+
+    // 履歴が更新されたら一番下にスクロールし、inputにフォーカス
+    useEffect(() => {
+        if (terminalRef.current) {
+            terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+        }
+        if (!isProcessing) {
+            inputRef.current?.focus();
+        }
+    }, [history, isProcessing]);
+
+    // クリックでinputにフォーカス
+    const focusInput = () => {
+        inputRef.current?.focus();
+    };
+
+    // コマンド処理
+    const handleCommand = async () => {
+        const command = input.trim();
+        const newHistory = [...history, `> ${input}`];
+        setHistory(newHistory);
+        setInput('');
+        setIsProcessing(true);
+
+        const [cmd, ...args] = command.split(' ').filter(Boolean);
+
+        await sleep(100);
+
+        switch (cmd?.toLowerCase()) {
+            case 'help':
+                setHistory(prev => [
+                    ...prev,
+                    "Available commands:",
+                    "  <span class='text-yellow-300'>help</span>          - Show this help message",
+                    "  <span class='text-yellow-300'>ls [path]</span>     - List files and directories",
+                    "  <span class='text-yellow-300'>cat [file]</span>    - Display file content",
+                    "  <span class='text-yellow-300'>clear</span>         - Clear the terminal screen",
+                    "  <span class='text-yellow-300'>exit</span>          - Return to the portfolio",
+                    ""
+                ]);
+                break;
+
+            case 'ls':
+                handleLs(args[0]);
+                break;
+
+            case 'cat':
+                handleCat(args[0]);
+                break;
+
+            case 'clear':
+                setHistory([]);
+                break;
+
+            case 'exit':
+                setHistory(prev => [...prev, "Returning to portfolio..."]);
+                await sleep(1000);
+                backToPortfolio();
+                break;
+
+            case undefined: // Empty input
+                break;
+
+            default:
+                setHistory(prev => [...prev, `Command not found: ${command}`, '']);
+                break;
+        }
+        setIsProcessing(false);
+    };
+
+    // `ls`コマンドの処理
+    const handleLs = (path: string | undefined) => {
+        const parts = path ? path.split('/').filter(p => p) : [];
+        let current: string | Directory = fileSystem;
+
+        for (const part of parts) {
+            if (typeof current === 'object' && current[part]) {
+                current = current[part];
+            } else {
+                setHistory(prev => [...prev, `ls: cannot access '${path}': No such file or directory`, '']);
+                return;
+            }
+        }
+
+        if (typeof current === 'object') {
+            const items = Object.keys(current).map(key => {
+                const value = current[key];
+                return typeof value === 'object' ? `<span class='text-blue-400'>${key}/</span>` : key;
+            });
+            setHistory(prev => [...prev, items.join('   '), '']);
+        } else {
+            setHistory(prev => [...prev, path || '', '']);
+        }
+    };
+
+    // `cat`コマンドの処理
+    const handleCat = (path: string | undefined) => {
+        if (!path) {
+            setHistory(prev => [...prev, 'cat: missing operand', '']);
+            return;
+        }
+        const parts = path.split('/').filter(p => p);
+        let current: string | Directory = fileSystem;
+        let found = true;
+
+        for (const part of parts) {
+            if (typeof current === 'object' && current[part]) {
+                current = current[part];
+            } else {
+                found = false;
+                break;
+            }
+        }
+
+        if (found && typeof current === 'string') {
+            const contentLines = current.trim().split('\n');
+            setHistory(prev => [...prev, ...contentLines, '']);
+        } else if (found && typeof current === 'object') {
+            setHistory(prev => [...prev, `cat: ${path}: Is a directory`, '']);
+        } else {
+            setHistory(prev => [...prev, `cat: ${path}: No such file or directory`, '']);
+        }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && !isProcessing) {
+            handleCommand();
+        }
+    };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-black text-cyan-400 font-mono p-6 text-center animate-fadeIn">
-            <div className="max-w-3xl w-full border-2 border-cyan-500/50 p-8 rounded-lg shadow-xl shadow-cyan-500/20 bg-gray-900/50 backdrop-blur-sm">
-                <GlitchText className="text-4xl md:text-5xl font-bold mb-8 text-white">
-                    :: SECRET SECTOR ::
-                </GlitchText>
-
-                <div className="text-left min-h-[220px]">
-                    <BootingText
-                        text={contentText}
-                        startCondition={true}
-                        className="text-lg"
-                    />
+        <div
+            className="min-h-screen flex items-center justify-center bg-black text-cyan-400 font-mono p-4 animate-fadeIn"
+            onClick={focusInput}
+        >
+            <div className="w-full max-w-4xl h-[80vh] bg-black/50 border-2 border-cyan-500/30 rounded-lg shadow-2xl shadow-cyan-500/20 flex flex-col">
+                <div className="bg-gray-900/80 p-2 flex items-center rounded-t-md border-b border-cyan-500/30">
+                    <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                    <p className="text-sm text-gray-400 ml-auto">root@portfolio:~/</p>
                 </div>
 
-                <p className="mt-8 text-sm text-gray-500">
-                    - Access Key: 34.0522° N, 118.2437° W -
-                </p>
+                <div ref={terminalRef} className="flex-grow p-4 overflow-y-auto text-sm md:text-base">
+                    {history.map((line, index) => (
+                        <p key={index} className="m-0 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: line }} />
+                    ))}
+                    {!isProcessing && (
+                        <div className="flex">
+                            <span className="mr-2">{'>'}</span>
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                className="bg-transparent border-none outline-none text-cyan-400 font-mono flex-grow"
+                                autoFocus
+                                disabled={isProcessing}
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
-            <button
-                onClick={backToPortfolio}
-                className="mt-12 px-8 py-3 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 font-semibold rounded-lg transition-all duration-300 transform hover:-translate-y-1"
-            >
-                [ RETURN TO PORTFOLIO ]
-            </button>
         </div>
     );
 };
 
-export default HiddenContent;
+export default InteractiveTerminal;
