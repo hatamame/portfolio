@@ -300,7 +300,7 @@ const Game = () => {
             return (
                 <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center backdrop-blur-sm">
                     <h3 className="text-5xl font-bold text-white mb-4 animate-pulse">CYBER BREAKER</h3>
-                    <p className="text-cyan-400 mb-8">お楽しみコンテンツです。ポートフォリオの息抜きにどうぞ。</p>
+                    <p className="text-cyan-400 mb-8">お楽しみコンテンツです</p>
                     <button
                         onClick={startGame}
                         className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 transform hover:-translate-y-1"

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Github, ExternalLink } from 'lucide-react';
 import { useAnimateOnScroll } from '../hooks/useAnimateOnScroll';
@@ -45,14 +44,15 @@ const ProjectCard = ({ project, index }: { project: Project, index: number }) =>
         <h3 className="text-xl font-bold text-cyan-400 mb-3 group-hover:text-cyan-300 transition-colors">
           {project.title}
         </h3>
-        <p className="text-gray-300 mb-4 leading-relaxed">
+        <p className="text-gray-300 mb-4 leading-relaxed h-20 transition-opacity duration-300 group-hover:opacity-0">
           {project.description}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {project.tech.map((tech) => (
+        <div className="flex flex-wrap gap-2 absolute bottom-6 px-6 left-0 w-full">
+          {project.tech.map((tech, i) => (
             <span
               key={tech}
-              className="px-3 py-1 text-xs bg-cyan-500/10 text-cyan-400 rounded-full border border-cyan-500/20"
+              className="px-3 py-1 text-xs bg-cyan-500/10 text-cyan-400 rounded-full border border-cyan-500/20 transform translate-y-4 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+              style={{ transitionDelay: `${i * 50}ms` }}
             >
               {tech}
             </span>

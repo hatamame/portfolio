@@ -14,9 +14,9 @@ const Hero = ({ isLoaded, scrollToSection }: HeroProps) => {
         <div className={`transition-opacity duration-1000 ${isLoaded ? 'opacity-100 animate-fadeInUp' : 'opacity-0'}`}>
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
             <GlitchText>
-              <span className="text-cyan-400">Full Stack</span>
+              <span className="text-cyan-400">Full Stuck.</span>
               <br />
-              <span className="text-white">Developer</span>
+              <span className="text-white">Full Power.</span>
             </GlitchText>
           </h1>
           <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">

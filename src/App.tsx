@@ -20,6 +20,7 @@ import ParticleCanvas from './canvas/ParticleCanvas';
 const App = () => {
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const isLoaded = showPortfolio;
 
@@ -39,6 +40,12 @@ const App = () => {
     if (!isLoaded) return;
     const handleScroll = () => {
       const sections = ['hero', 'about', 'skills', 'career', 'projects', 'game', 'contact']; // 'game' を追加
+
+      const totalScrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const currentScroll = window.scrollY;
+      // Avoid division by zero on pages that don't scroll
+      setScrollProgress(totalScrollableHeight > 0 ? currentScroll / totalScrollableHeight : 0);
+
       const scrollPosition = window.scrollY + 100;
 
       for (const sectionId of sections) {
@@ -64,7 +71,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-x-hidden animate-fadeIn">
-      <ParticleCanvas />
+      <ParticleCanvas scrollProgress={scrollProgress} />
 
       <div
         className="fixed w-96 h-96 rounded-full opacity-20 pointer-events-none z-0 transition-all duration-1000 ease-out"
@@ -80,7 +87,7 @@ const App = () => {
 
       <main>
         <Hero isLoaded={isLoaded} scrollToSection={scrollToSection} />
-        <About />
+        <About scrollProgress={scrollProgress} />
         <Skills />
         <Career />
         <Projects />

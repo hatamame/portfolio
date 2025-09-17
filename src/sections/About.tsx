@@ -1,7 +1,7 @@
-
 import Scene3D from '../canvas/Scene3D';
+import TypingText from '../components/TypingText';
 
-const About = () => {
+const About = ({ scrollProgress }: { scrollProgress: number }) => {
   return (
     <section id="about" className="py-20 bg-gray-900/30 relative z-10">
       <div className="max-w-6xl mx-auto px-6">
@@ -14,14 +14,8 @@ const About = () => {
             <h3 className="text-2xl font-bold text-white mb-4">
               革新的な技術で未来を創造
             </h3>
-            <p className="text-gray-300 leading-relaxed">
-              フルスタック開発者として、最新のWeb技術とAI技術を駆使して、
-              ユーザーエクスペリエンスを重視した革新的なアプリケーションを開発しています。
-            </p>
-            <p className="text-gray-300 leading-relaxed">
-              常に新しい技術を学び続け、クリーンなコードと効率的なソリューションを
-              提供することで、ビジネス価値の最大化を目指しています。
-            </p>
+            <TypingText text="フルスタック開発者として、最新のWeb技術とAI技術を駆使して、ユーザーエクスペリエンスを重視した革新的なアプリケーションを開発しています。" />
+            <TypingText text="常に新しい技術を学び続け、クリーンなコードと効率的なソリューションを提供することで、ビジネス価値の最大化を目指しています。" />
             <div className="flex space-x-6 pt-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-cyan-400">5+</div>
@@ -38,7 +32,7 @@ const About = () => {
             </div>
           </div>
           <div className="relative flex justify-center items-center w-80 h-80 cursor-grab active:cursor-grabbing">
-            <Scene3D />
+            <Scene3D scrollProgress={scrollProgress} />
           </div>
         </div>
       </div>

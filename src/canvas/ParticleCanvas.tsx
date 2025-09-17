@@ -1,9 +1,15 @@
-
 import { useRef, useEffect } from 'react';
 import type { Particle } from '../types';
 
-const ParticleCanvas = () => {
+const ParticleCanvas = ({ scrollProgress }: { scrollProgress: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollRef = useRef(scrollProgress);
+
+  // Keep scrollRef updated without re-triggering the main effect
+  useEffect(() => {
+    scrollRef.current = scrollProgress;
+  }, [scrollProgress]);
+
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -42,10 +48,18 @@ const ParticleCanvas = () => {
 
       update() {
         this.x += this.vx;
-        this.y += this.vy;
+        // Apply a subtle parallax effect based on scroll
+        this.y += this.vy + (scrollRef.current - 0.5) * 0.25;
 
         if (canvas && (this.x < 0 || this.x > canvas.width)) this.vx *= -1;
-        if (canvas && (this.y < 0 || this.y > canvas.height)) this.vy *= -1;
+        if (canvas && (this.y < 0 || this.y > canvas.height)) {
+          // Reset particle to the opposite side for a continuous flow
+          if (this.vy > 0 && this.y > canvas.height) {
+            this.y = 0;
+          } else if (this.vy < 0 && this.y < 0) {
+            this.y = canvas.height;
+          }
+        }
       }
 
       draw(context: CanvasRenderingContext2D) {

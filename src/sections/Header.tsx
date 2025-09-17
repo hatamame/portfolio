@@ -13,12 +13,12 @@ const Header = ({ activeSection, scrollToSection }: HeaderProps) => {
           <a href="#hero" className="text-2xl font-bold">
             <GlitchText>
               <span className="text-cyan-400">{'<'}</span>
-              <span className="text-white">DevName</span>
+              <span className="text-white">DevVerse</span>
               <span className="text-cyan-400">{'/>'}</span>
             </GlitchText>
           </a>
           <div className="hidden md:flex space-x-8">
-            {['about', 'skills', 'career', 'projects', 'game', 'contact'].map((item) => ( // 'game' を追加
+            {['about', 'skills', 'career', 'projects', 'game', 'contact'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
