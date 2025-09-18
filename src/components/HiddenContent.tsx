@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, FC, KeyboardEvent } from 'react';
-import { fileSystem } from '@/data/secretData';
+import type { FileSystemNode } from '../types';
+import { fileSystem } from '../data/secretData';
+import DecryptGame from './DecryptGame';
 
 // ASCII Art Logo
 const asciiLogo = `
@@ -11,11 +13,55 @@ const asciiLogo = `
    Y888P  88   YD Y888888P YP   YP 88   YD  'Y88P'  VP   V8P
 `;
 
-// 型定義
-type Directory = { [key: string]: string | Directory };
-
 // 非同期処理で待機するためのヘルパー関数
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// マトリックスエフェクト
+const MatrixEffect: FC = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current!;
+        const ctx = canvas.getContext('2d')!;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const nums = '0123456789';
+        const alphabet = katakana + latin + nums;
+
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const rainDrops: number[] = [];
+
+        for (let x = 0; x < columns; x++) {
+            rainDrops[x] = 1;
+        }
+
+        const draw = () => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0F0';
+            ctx.font = `${fontSize}px monospace`;
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+
+        const interval = setInterval(draw, 30);
+        return () => clearInterval(interval);
+    }, []);
+
+    return <canvas ref={canvasRef} className="absolute inset-0 z-0" />;
+};
+
 
 interface HiddenContentProps {
     backToPortfolio: () => void;
@@ -25,9 +71,21 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
     const [history, setHistory] = useState<string[]>([]);
     const [input, setInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [mode, setMode] = useState<'normal' | 'password' | 'game'>('normal');
+    const [unlockedFiles, setUnlockedFiles] = useState<string[]>([]);
+    const [justUnlockedFile, setJustUnlockedFile] = useState<string | null>(null);
+    const [activeFile, setActiveFile] = useState<string>('');
+    const [passwordGuess, setPasswordGuess] = useState({ value: '', timestamp: 0 });
+    const [gameGuess, setGameGuess] = useState({ value: '', timestamp: 0 });
+    const [showMatrix, setShowMatrix] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const bootSequenceCompleted = useRef(false);
+
+
+    const addToHistory = (lines: string[]) => {
+        setHistory(prev => [...prev, ...lines]);
+    };
 
     // 起動時のシーケンス
     useEffect(() => {
@@ -37,20 +95,18 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
         const bootSequence = async () => {
             setIsProcessing(true);
             setHistory([]);
-
-            // Display ASCII Art
             console.log(asciiLogo);
             console.log('Welcome to my secret terminal! Type `help` to get started.');
-
 
             await sleep(500);
             await typeLine("Welcome to my secret terminal.");
             await sleep(500);
             await typeLine("Type 'help' to see available commands.");
-            setHistory(prev => [...prev, '']);
+            addToHistory(['']);
             setIsProcessing(false);
         };
         bootSequence();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ターミナルに1行ずつテキストをタイプ表示する関数
@@ -85,17 +141,59 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
         }
     }, [history, isProcessing]);
 
+    // パスワードの正誤判定とファイルアンロック処理
+    useEffect(() => {
+        if (mode !== 'password' || passwordGuess.timestamp === 0) return;
+
+        const node = getNodeByPath(activeFile, fileSystem);
+        if (node?.type === 'file' && node.isProtected) {
+            if (passwordGuess.value === node.password) {
+                addToHistory(['Password correct. Access granted.']);
+                setUnlockedFiles(prev => [...prev, activeFile]);
+                setMode('normal');
+                // ファイル内容を表示するために、別のuseEffectをトリガーします
+                setJustUnlockedFile(activeFile);
+            } else {
+                addToHistory(['Incorrect password. Access denied.', '']);
+                setMode('normal');
+                setActiveFile(''); // アクティブファイルをリセット
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [passwordGuess]);
+
+    // ファイルがアンロックされた直後にその内容を表示する
+    useEffect(() => {
+        if (justUnlockedFile) {
+            handleCat(justUnlockedFile);
+            setJustUnlockedFile(null); // トリガーをリセット
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [justUnlockedFile]);
+
     // クリックでinputにフォーカス
     const focusInput = () => {
         inputRef.current?.focus();
     };
 
+    const getNodeByPath = (path: string, fs: FileSystemNode): FileSystemNode | undefined => {
+        const parts = path.split('/').filter(p => p);
+        let current: FileSystemNode | undefined = fs;
+        for (const part of parts) {
+            if (current?.type === 'directory' && current.children?.[part]) {
+                current = current.children[part];
+            } else {
+                return undefined;
+            }
+        }
+        return current;
+    };
+
+
     // コマンド処理
-    const handleCommand = async () => {
-        const command = input.trim();
-        const newHistory = [...history.slice(0, -1), `> ${input}`];
+    const handleCommand = async (command: string) => {
+        const newHistory = [...history, `> ${command}`];
         setHistory(newHistory);
-        setInput('');
         setIsProcessing(true);
 
         const [cmd, ...args] = command.split(' ').filter(Boolean);
@@ -104,12 +202,12 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
 
         switch (cmd?.toLowerCase()) {
             case 'help':
-                setHistory(prev => [
-                    ...prev,
+                addToHistory([
                     "Available commands:",
                     "  <span class='text-yellow-300'>help</span>          - Show this help message",
                     "  <span class='text-yellow-300'>ls [path]</span>     - List files and directories",
                     "  <span class='text-yellow-300'>cat [file]</span>    - Display file content",
+                    "  <span class='text-yellow-300'>decrypt [file]</span>- Attempt to decrypt a locked file",
                     "  <span class='text-yellow-300'>clear</span>         - Clear the terminal screen",
                     "  <span class='text-yellow-300'>exit</span>          - Return to the portfolio",
                     ""
@@ -124,22 +222,26 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                 handleCat(args[0]);
                 break;
 
+            case 'decrypt':
+                handleDecrypt(args[0]);
+                break;
+
             case 'clear':
                 setHistory([]);
                 break;
 
             case 'exit':
-                setHistory(prev => [...prev, "Returning to portfolio..."]);
+                addToHistory(["Returning to portfolio..."]);
                 await sleep(1000);
                 backToPortfolio();
                 break;
 
             case undefined: // Empty input
-                setHistory(prev => [...prev, '']);
+                addToHistory(['']);
                 break;
 
             default:
-                setHistory(prev => [...prev, `Command not found: ${command}`, '']);
+                addToHistory([`Command not found: ${command}`, '']);
                 break;
         }
         setIsProcessing(false);
@@ -147,63 +249,115 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
 
     // `ls`コマンドの処理
     const handleLs = (path: string | undefined) => {
-        const parts = path ? path.split('/').filter(p => p) : [];
-        let current: string | Directory = fileSystem;
+        const targetPath = path || '';
+        const node = getNodeByPath(targetPath, fileSystem);
 
-        for (const part of parts) {
-            if (typeof current === 'object' && current[part]) {
-                current = current[part];
-            } else {
-                setHistory(prev => [...prev, `ls: cannot access '${path}': No such file or directory`, '']);
-                return;
-            }
-        }
-
-        if (typeof current === 'object') {
-            const items = Object.keys(current).map(key => {
-                const value = current[key];
-                return typeof value === 'object' ? `<span class='text-blue-400'>${key}/</span>` : key;
+        if (node?.type === 'directory') {
+            const items = Object.keys(node.children || {}).map(key => {
+                const child = node.children![key];
+                const isLocked = child.type === 'file' && child.isProtected && !unlockedFiles.includes(`${targetPath}/${key}`.replace(/^\//, ''));
+                if (child.type === 'directory') {
+                    return `<span class='text-blue-400'>${key}/</span>`;
+                } else {
+                    return isLocked ? `<span class='text-red-500'>[LOCKED] ${key}</span>` : key;
+                }
             });
-            setHistory(prev => [...prev, items.join('   '), '']);
+            addToHistory([items.join('   '), '']);
+        } else if (node?.type === 'file') {
+            addToHistory([path || '', '']);
         } else {
-            setHistory(prev => [...prev, path || '', '']);
+            addToHistory([`ls: cannot access '${path}': No such file or directory`, '']);
         }
     };
 
     // `cat`コマンドの処理
     const handleCat = (path: string | undefined) => {
         if (!path) {
-            setHistory(prev => [...prev, 'cat: missing operand', '']);
+            addToHistory(['cat: missing operand', '']);
             return;
         }
-        const parts = path.split('/').filter(p => p);
-        let current: string | Directory = fileSystem;
-        let found = true;
 
-        for (const part of parts) {
-            if (typeof current === 'object' && current[part]) {
-                current = current[part];
-            } else {
-                found = false;
-                break;
+        const node = getNodeByPath(path, fileSystem);
+
+        if (node?.type === 'file') {
+            if (node.isProtected && !unlockedFiles.includes(path)) {
+                setActiveFile(path);
+                setMode('password');
+                addToHistory([`Enter password for ${path}:`]);
+                return;
             }
-        }
-
-        if (found && typeof current === 'string') {
-            const contentLines = current.trim().split('\n');
-            setHistory(prev => [...prev, ...contentLines, '']);
-        } else if (found && typeof current === 'object') {
-            setHistory(prev => [...prev, `cat: ${path}: Is a directory`, '']);
+            const contentLines = node.content?.trim().split('\n') || [];
+            addToHistory([...contentLines, '']);
+        } else if (node?.type === 'directory') {
+            addToHistory([`cat: ${path}: Is a directory`, '']);
         } else {
-            setHistory(prev => [...prev, `cat: ${path}: No such file or directory`, '']);
+            addToHistory([`cat: ${path}: No such file or directory`, '']);
         }
     };
+
+    const handleDecrypt = (path: string | undefined) => {
+        if (!path) {
+            addToHistory(['decrypt: missing file operand', '']);
+            return;
+        }
+        const node = getNodeByPath(path, fileSystem);
+        if (node?.type === 'file' && node.isProtected) {
+            if (unlockedFiles.includes(path)) {
+                addToHistory([`File ${path} is already unlocked.`, '']);
+                return;
+            }
+            setActiveFile(path);
+            setMode('game');
+        } else if (node) {
+            addToHistory([`decrypt: ${path}: File is not protected.`, '']);
+        } else {
+            addToHistory([`decrypt: ${path}: No such file or directory.`, '']);
+        }
+    };
+
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !isProcessing) {
-            handleCommand();
+            const currentInput = input;
+            setInput('');
+            if (mode === 'normal') {
+                handleCommand(currentInput);
+            } else if (mode === 'password') {
+                setPasswordGuess({ value: currentInput, timestamp: Date.now() });
+                addToHistory([`> ********`]);
+            } else if (mode === 'game') {
+                setGameGuess({ value: currentInput, timestamp: Date.now() });
+            }
         }
     };
+
+    if (showMatrix) {
+        return (
+            <div className="relative w-screen h-screen">
+                <MatrixEffect />
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <div className="text-center text-white font-mono bg-black/50 p-8 rounded-lg">
+                        <h2 className="text-4xl text-green-400 mb-4 animate-pulse">ACCESS GRANTED</h2>
+                        <p className="text-xl">Welcome to the core.</p>
+                        <button
+                            onClick={() => {
+                                setShowMatrix(false);
+                                // マトリックス表示後にファイル内容を表示
+                                addToHistory(["<span class='text-green-400'>DECRYPTION COMPLETE.</span> Displaying file contents..."]);
+                                const node = getNodeByPath('unreleased_projects/Project_Zero.log', fileSystem);
+                                if (node?.type === 'file' && node.content) {
+                                    addToHistory([...node.content.trim().split('\n'), '']);
+                                }
+                            }}
+                            className="mt-8 px-6 py-2 border border-green-400 text-green-400 hover:bg-green-400/20 transition-all"
+                        >
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div
@@ -222,12 +376,12 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                     {history.map((line, index) => (
                         <p key={index} className="m-0 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: line }} />
                     ))}
-                    {!isProcessing && (
+                    {!isProcessing && mode !== 'game' && (
                         <div className="flex">
-                            <span className="mr-2">{'>'}</span>
+                            <span className="mr-2">{mode === 'password' ? 'Enter password:' : '>'}</span>
                             <input
                                 ref={inputRef}
-                                type="text"
+                                type={mode === 'password' ? 'password' : 'text'}
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
@@ -237,6 +391,36 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                             />
                         </div>
                     )}
+                    {mode === 'game' &&
+                        <>
+                            <div className="flex">
+                                <span className="mr-2">&gt;</span>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    className="bg-transparent border-none outline-none text-cyan-400 font-mono flex-grow"
+                                    autoFocus
+                                    disabled={isProcessing}
+                                />
+                            </div>
+                            <DecryptGame
+                                guess={gameGuess}
+                                onUpdate={addToHistory}
+                                onWin={() => {
+                                    setUnlockedFiles(prev => [...prev, activeFile]);
+                                    setMode('normal');
+                                    setShowMatrix(true);
+                                }}
+                                onLose={() => {
+                                    addToHistory(['DECRYPTION FAILED. Connection terminated.', '']);
+                                    setMode('normal');
+                                }}
+                            />
+                        </>
+                    }
                 </div>
             </div>
         </div>

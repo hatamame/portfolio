@@ -35,3 +35,18 @@ export interface Particle {
   update: () => void;
   draw: (ctx: CanvasRenderingContext2D) => void;
 }
+
+export type FileSystemNode = File | Directory;
+
+export interface File {
+  type: 'file';
+  isProtected?: boolean;
+  password?: string;
+  content: string;
+  unlockEffect?: 'matrix';
+}
+
+export interface Directory {
+  type: 'directory';
+  children: { [key: string]: FileSystemNode };
+}
