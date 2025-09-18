@@ -1,4 +1,4 @@
-import { useState, useEffect, FC, useRef } from 'react';
+import { useState, useEffect, FC, useRef, useCallback } from 'react';
 
 // 非同期処理で待機するためのヘルパー関数
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -15,10 +15,9 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
     const [isInputLocked, setIsInputLocked] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
     const [progress, setProgress] = useState(0);
-    const isMounted = useRef(true); // マウント状態を管理するref
+    const isMounted = useRef(true);
 
-    // ターミナルに1行ずつテキストをタイプ表示する関数
-    const addLine = async (text: string, delay = 50) => {
+    const addLine = useCallback(async (text: string, delay = 50) => {
         if (!isMounted.current) return;
         let currentLine = '';
         setLines(prev => [...prev, '']);
@@ -32,10 +31,9 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
             });
             await sleep(delay);
         }
-    };
+    }, []);
 
-    // yが入力された後の成功シーケンス
-    const runSuccessSequence = async () => {
+    const runSuccessSequence = useCallback(async () => {
         if (!isMounted.current) return;
         setIsPrompting(false);
         await addLine(`> PERMISSION GRANTED. EXECUTING 'sudo su'...`);
@@ -47,13 +45,8 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
             currentProgress = Math.min(100, currentProgress + increment);
             setProgress(currentProgress);
 
-            // 特定のパーセンテージで意図的に停止させ、リアルな感じを出す
-            if (currentProgress > 30 && currentProgress < 35) {
-                await sleep(300);
-            }
-            if (currentProgress > 70 && currentProgress < 75) {
-                await sleep(400);
-            }
+            if (currentProgress > 30 && currentProgress < 35) await sleep(300);
+            if (currentProgress > 70 && currentProgress < 75) await sleep(400);
 
             await sleep(Math.random() * 100 + 50);
         }
@@ -70,10 +63,9 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
         setTimeout(() => {
             if (isMounted.current) onFinished();
         }, 500);
-    };
+    }, [addLine, onFinished]);
 
-    // nが入力された後のキャンセルシーケンス
-    const runCancelSequence = async () => {
+    const runCancelSequence = useCallback(async () => {
         if (!isMounted.current) return;
         setIsPrompting(false);
         await addLine(`> ACCESS DENIED. CLOSING CONNECTION...`);
@@ -83,9 +75,8 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
         setTimeout(() => {
             if (isMounted.current) onCancel();
         }, 500);
-    };
+    }, [addLine, onCancel]);
 
-    // 初期シーケンスの実行
     useEffect(() => {
         isMounted.current = true;
         let sequenceCancelled = false;
@@ -114,11 +105,10 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
             await sleep(500);
             if (sequenceCancelled) return;
             setLines(prev => {
-                // 既にプロンプトが表示されている場合は追加しない
                 if (prev[prev.length - 1]?.includes("GRANT ROOT PERMISSIONS")) {
                     return prev;
                 }
-                return [...prev, "GRANT ROOT PERMISSIONS? (Y/N)"];
+                return [...prev, "GRANT ROOT PERMISSIONS? (Y/N) "];
             });
             setIsPrompting(true);
         };
@@ -128,55 +118,56 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
             isMounted.current = false;
             sequenceCancelled = true;
         };
-    }, []);
+    }, [addLine]);
 
-    // キー入力のハンドリング
-    useEffect(() => {
-        if (!isPrompting || isInputLocked) return;
+    const userInputRef = useRef(userInput);
+    userInputRef.current = userInput;
 
-        const handleKeyPress = async (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-                setIsInputLocked(true);
-                // ユーザー入力を新しい行として追加する前に、最後の行がプロンプトか確認
-                setLines(prev => {
-                    const newLines = [...prev];
-                    // 最後の行がプロンプトなら、その行をユーザー入力で置き換える
-                    if (newLines[newLines.length - 1].includes('GRANT ROOT PERMISSIONS')) {
-                        // This is tricky, because we want to remove the prompt line and add the user input line.
-                        // Let's just add the user input on a new line.
-                    }
-                    return [...newLines, `> ${userInput}`];
-                });
+    const handleKeyPress = useCallback(async (e: KeyboardEvent) => {
+        if (isInputLocked) return;
 
-                const finalInput = userInput.toLowerCase();
-                setUserInput('');
+        if (e.key === 'Enter') {
+            setIsInputLocked(true);
+            const currentInput = userInputRef.current;
 
-                await sleep(300);
-
-                if (finalInput === 'y') {
-                    runSuccessSequence();
-                } else if (finalInput === 'n') {
-                    runCancelSequence();
-                } else {
-                    await addLine(`> ERROR: Invalid command '${finalInput}'. Please enter Y or N.`);
-                    await sleep(500);
-                    // プロンプトを再表示
-                    setLines(prev => [...prev, "GRANT ROOT PERMISSIONS? (Y/N)"]);
-                    setIsInputLocked(false);
+            setLines(prev => {
+                const newLines = [...prev];
+                const lastLineIndex = newLines.length - 1;
+                if (newLines[lastLineIndex]?.includes('GRANT ROOT PERMISSIONS')) {
+                    newLines[lastLineIndex] = `GRANT ROOT PERMISSIONS? (Y/N) > ${currentInput}`;
                 }
-            } else if (e.key === 'Backspace') {
-                setUserInput(prev => prev.slice(0, -1));
-            } else if (e.key.length === 1) { // 複数文字入力できるように修正
-                setUserInput(prev => prev + e.key);
+                return newLines;
+            });
+            setUserInput('');
+
+            await sleep(300);
+
+            const finalInput = currentInput.toLowerCase();
+            if (finalInput === 'y') {
+                await runSuccessSequence();
+            } else if (finalInput === 'n') {
+                await runCancelSequence();
+            } else {
+                await addLine(`> ERROR: Invalid command '${finalInput}'. Please enter Y or N.`);
+                await sleep(500);
+                setLines(prev => [...prev, "GRANT ROOT PERMISSIONS? (Y/N) "]);
+                setIsInputLocked(false);
             }
-        };
+        } else if (e.key === 'Backspace') {
+            setUserInput(prev => prev.slice(0, -1));
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+            setUserInput(prev => prev + e.key);
+        }
+    }, [isInputLocked, runSuccessSequence, runCancelSequence, addLine]);
 
-        window.addEventListener('keydown', handleKeyPress);
-        return () => {
-            window.removeEventListener('keydown', handleKeyPress);
-        };
-    }, [isPrompting, isInputLocked, userInput, onCancel, onFinished]);
-
+    useEffect(() => {
+        if (isPrompting) {
+            window.addEventListener('keydown', handleKeyPress);
+            return () => {
+                window.removeEventListener('keydown', handleKeyPress);
+            };
+        }
+    }, [isPrompting, handleKeyPress]);
 
     return (
         <div className={`fixed inset-0 bg-black flex flex-col items-center justify-center z-[100] text-cyan-400 font-mono transition-opacity duration-500 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
@@ -184,14 +175,15 @@ const SecretLoadingAnimation: FC<SecretLoadingAnimationProps> = ({ onFinished, o
                 {lines.map((line, index) => (
                     <p key={index} className="m-0 text-sm md:text-base whitespace-pre-wrap">
                         {line}
+                        {isPrompting && !isInputLocked && index === lines.length - 1 && line.includes('GRANT ROOT PERMISSIONS') && (
+                            <>
+                                {userInput}
+                                <span className="animate-pulse ml-1 bg-cyan-400 w-2 h-4 inline-block align-middle"></span>
+                            </>
+                        )}
                     </p>
                 ))}
-                {isPrompting && !isInputLocked && (
-                    <p className="m-0 text-sm md:text-base">
-                        {'> '}{userInput}
-                        <span className="animate-pulse ml-1 bg-cyan-400 w-2 h-4 inline-block align-middle"></span>
-                    </p>
-                )}
+
                 {progress > 0 && (
                     <div className="mt-4">
                         {progress < 100 && <p>{'>'} Escalating privileges...</p>}

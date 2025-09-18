@@ -1,25 +1,26 @@
 import { useState, useEffect } from 'react';
+import { Bug } from 'lucide-react';
 
 // Components
-import LoadingAnimation from '@/components/LoadingAnimation';
-import HiddenContent from '@/components/HiddenContent';
-import SecretButton from '@/components/SecretButton';
-import SecretLoadingAnimation from '@/components/SecretLoadingAnimation';
+import LoadingAnimation from './components/LoadingAnimation';
+import HiddenContent from './components/HiddenContent';
+import SecretButton from './components/SecretButton';
+import SecretLoadingAnimation from './components/SecretLoadingAnimation';
 
 
 // Sections
-import Header from '@/sections/Header';
-import Hero from '@/sections/Hero';
-import About from '@/sections/About';
-import Skills from '@/sections/Skills';
-import Career from '@/sections/Career';
-import Projects from '@/sections/Projects';
-import Game from '@/sections/Game';
-import Contact from '@/sections/Contact';
-import Footer from '@/sections/Footer';
+import Header from './sections/Header';
+import Hero from './sections/Hero';
+import About from './sections/About';
+import Skills from './sections/Skills';
+import Career from './sections/Career';
+import Projects from './sections/Projects';
+import Game from './sections/Game';
+import Contact from './sections/Contact';
+import Footer from './sections/Footer';
 
 // Canvas
-import ParticleCanvas from '@/canvas/ParticleCanvas';
+import ParticleCanvas from './canvas/ParticleCanvas';
 
 const App = () => {
   const [showPortfolio, setShowPortfolio] = useState(false);
@@ -46,11 +47,10 @@ const App = () => {
   useEffect(() => {
     if (!isLoaded) return;
     const handleScroll = () => {
-      const sections = ['hero', 'about', 'skills', 'career', 'projects', 'game', 'contact']; // 'game' を追加
+      const sections = ['hero', 'about', 'skills', 'career', 'projects', 'game', 'contact'];
 
       const totalScrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
       const currentScroll = window.scrollY;
-      // Avoid division by zero on pages that don't scroll
       setScrollProgress(totalScrollableHeight > 0 ? currentScroll / totalScrollableHeight : 0);
 
       const scrollPosition = window.scrollY + 100;
@@ -92,6 +92,13 @@ const App = () => {
     return <HiddenContent backToPortfolio={() => setShowHiddenPage(false)} />;
   }
 
+  const activateDebugMode = () => {
+    if (!gameCompleted) {
+      setGameCompleted(true);
+      console.log('DEBUG MODE: Game skipped. Secret content unlocked.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white relative overflow-x-hidden animate-fadeIn">
       <ParticleCanvas scrollProgress={scrollProgress} />
@@ -120,6 +127,19 @@ const App = () => {
 
       <Footer />
       {gameCompleted && <SecretButton onClick={() => setShowSecretLoading(true)} />}
+
+      {!gameCompleted && (
+        <button
+          onClick={activateDebugMode}
+          className="fixed bottom-4 left-4 z-50 p-2 bg-gray-800/50 text-gray-500 rounded-full hover:bg-cyan-500/20 hover:text-cyan-400 transition-all duration-300 group"
+          aria-label="Debug: Skip Game"
+        >
+          <Bug className="w-6 h-6" />
+          <span className="absolute bottom-0 left-full ml-2 mb-1 bg-gray-900/80 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Debug: Skip Game
+          </span>
+        </button>
+      )}
     </div>
   );
 };

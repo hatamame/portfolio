@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef, FC, KeyboardEvent } from 'react';
-import { fileSystem } from '../data/secretData';
+import { fileSystem } from '@/data/secretData';
+
+// ASCII Art Logo
+const asciiLogo = `
+  d888b  d8888b. d888888b  .d8b.  d8888b.  .d88b.  d8b   db
+  88' Y8b 88  '8D   '88'   d8' '8b 88  '8D .8P  Y8. 888o  88
+  88      88oobY'    88    88ooo88 88oobY' 88    88 88V8o 88
+  88  ooo 88'8b      88    88~~~88 88'8b   88    88 88 V8o88
+  88. ~8~ 88 '88.   .88.   88   88 88 '88. '8b  d8' 88  V888
+   Y888P  88   YD Y888888P YP   YP 88   YD  'Y88P'  VP   V8P
+`;
 
 // 型定義
 type Directory = { [key: string]: string | Directory };
@@ -17,41 +27,52 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const isMounted = useRef(false);
+    const bootSequenceCompleted = useRef(false);
 
     // 起動時のシーケンス
     useEffect(() => {
-        isMounted.current = true;
+        if (bootSequenceCompleted.current) return;
+        bootSequenceCompleted.current = true;
+
         const bootSequence = async () => {
-            if (!isMounted.current) return;
             setIsProcessing(true);
             setHistory([]);
+
+            // Display ASCII Art
+            console.log(asciiLogo);
+            console.log('Welcome to my secret terminal! Type `help` to get started.');
+
+
             await sleep(500);
-            if (!isMounted.current) return;
             await typeLine("Welcome to my secret terminal.");
             await sleep(500);
-            if (!isMounted.current) return;
             await typeLine("Type 'help' to see available commands.");
-            if (!isMounted.current) return;
             setHistory(prev => [...prev, '']);
             setIsProcessing(false);
         };
         bootSequence();
-        return () => {
-            isMounted.current = false;
-        };
     }, []);
 
     // ターミナルに1行ずつテキストをタイプ表示する関数
     const typeLine = async (text: string, speed: number = 25) => {
-        setHistory(prev => [...prev, '']);
-        let line = '';
-        for (let i = 0; i < text.length; i++) {
-            if (!isMounted.current) return;
-            line += text[i];
-            setHistory(prev => [...prev.slice(0, -1), line]);
-            await sleep(speed);
-        }
+        return new Promise<void>(resolve => {
+            setHistory(prev => [...prev, '']);
+            let line = '';
+            let i = 0;
+            const interval = setInterval(() => {
+                line += text[i];
+                setHistory(prev => {
+                    const newHistory = [...prev];
+                    newHistory[newHistory.length - 1] = line;
+                    return newHistory;
+                });
+                i++;
+                if (i >= text.length) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, speed);
+        });
     };
 
     // 履歴が更新されたら一番下にスクロールし、inputにフォーカス
@@ -72,7 +93,7 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
     // コマンド処理
     const handleCommand = async () => {
         const command = input.trim();
-        const newHistory = [...history, `> ${input}`];
+        const newHistory = [...history.slice(0, -1), `> ${input}`];
         setHistory(newHistory);
         setInput('');
         setIsProcessing(true);
@@ -114,6 +135,7 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                 break;
 
             case undefined: // Empty input
+                setHistory(prev => [...prev, '']);
                 break;
 
             default:
