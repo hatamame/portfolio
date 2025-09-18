@@ -80,7 +80,9 @@ const ExecutionSequence: FC<ExecutionSequenceProps> = ({ onFinished }) => {
         <div className={`fixed inset-0 bg-black flex flex-col items-center justify-center z-[100] text-cyan-400 font-mono transition-opacity duration-500 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
             <div className="w-[90vw] max-w-2xl h-auto text-left p-6 bg-black/50 backdrop-blur-sm border-2 border-cyan-500/30 rounded-lg shadow-2xl shadow-cyan-500/20">
                 {lines.map((line, index) => (
-                    <p key={index} className="m-0 text-sm md:text-base whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: line.replace(/\[OK\]/g, "<span class='text-green-400'>[OK]</span>") }} />
+                    // <p>タグを<div>に変更し、デフォルトのマージンによる影響をなくします。
+                    // leading-relaxedを追加して行間を調整します。
+                    <div key={index} className="text-sm md:text-base whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: line.replace(/\[OK\]/g, "<span class='text-green-400'>[OK]</span>") }} />
                 ))}
                 {!isExiting && <span className="animate-pulse ml-1 bg-cyan-400 w-2 h-4 inline-block align-middle"></span>}
             </div>
