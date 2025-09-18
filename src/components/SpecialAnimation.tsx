@@ -1,76 +1,98 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Text, Icosahedron } from '@react-three/drei';
-import { EffectComposer, Bloom, Glitch } from '@react-three/postprocessing';
+import { Text, TorusKnot, Stars } from '@react-three/drei';
+import { EffectComposer, Bloom, Glitch, Scanline, ChromaticAberration } from '@react-three/postprocessing';
 import { GlitchMode } from 'postprocessing';
-import { Vector2 } from 'three';
-import { Mesh } from 'three';
+import { Vector2, MathUtils, Mesh } from 'three';
 
 // 画面に表示するランダムな文字列を生成
 const generateRandomString = (length: number) => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%$#@*&^';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    const chars = 'AZERTYUIOPQSDFGHJKLMWXCVBN0123456789%$#@*&?!';
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 };
 
 // 背景のグリッド
 const Grid = () => (
-    <gridHelper args={[100, 50, '#ff007f', '#00f5ff']} rotation-x={Math.PI / 2} />
+    <gridHelper args={[200, 100, '#ff007f', '#00f5ff']} rotation-x={Math.PI / 2} />
 );
 
 // 回転するオブジェクト
 const RotatingObject = () => {
     const meshRef = useRef<Mesh>(null!);
-    useFrame((_, delta) => {
+    useFrame((state, delta) => {
         if (meshRef.current) {
-            meshRef.current.rotation.x += delta * 0.2;
-            meshRef.current.rotation.y += delta * 0.3;
+            meshRef.current.rotation.x = MathUtils.lerp(meshRef.current.rotation.x, Math.sin(state.clock.elapsedTime / 2) * 2, 0.1);
+            meshRef.current.rotation.y = MathUtils.lerp(meshRef.current.rotation.y, Math.cos(state.clock.elapsedTime / 2) * 2, 0.1);
+            meshRef.current.rotation.z += delta * 0.1;
         }
     });
 
     return (
-        <Icosahedron ref={meshRef} args={[2, 1]}>
+        <TorusKnot ref={meshRef} args={[1.5, 0.4, 256, 32]}>
             <meshStandardMaterial wireframe color="#fff" emissive="#00f5ff" emissiveIntensity={2} />
-        </Icosahedron>
+        </TorusKnot>
     );
 };
 
 // ちらつくテキスト
 const GlitchyText = ({ text, position, fontSize }: { text: string; position: [number, number, number], fontSize: number }) => (
-    <Text position={position} fontSize={fontSize} color="#00f5ff" anchorX="center" anchorY="middle">
+    <Text position={position} fontSize={fontSize} color="#00f5ff" anchorX="center" anchorY="middle" letterSpacing={0.2}>
         {text}
-        <meshStandardMaterial emissive="#00f5ff" emissiveIntensity={3} toneMapped={false} />
+        <meshStandardMaterial emissive="#00f5ff" emissiveIntensity={4} toneMapped={false} />
     </Text>
 );
+
+// カメラ
+const AnimatedCamera = ({ targetZ }: { targetZ: number }) => {
+    useFrame(state => {
+        state.camera.position.z = MathUtils.lerp(state.camera.position.z, targetZ, 0.02);
+        state.camera.lookAt(0, 0, 0);
+    });
+    return null;
+};
 
 interface SpecialAnimationProps {
     onFinished: () => void;
 }
 
 const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
-    const [randomText, setRandomText] = useState(generateRandomString(20));
+    const [randomTexts, setRandomTexts] = useState<string[]>([]);
     const [finalMessage, setFinalMessage] = useState('');
     const [isExiting, setIsExiting] = useState(false);
+    const [glitchActive, setGlitchActive] = useState(true);
+    const [cameraTargetZ, setCameraTargetZ] = useState(5);
+    const fullFinalMessage = 'WELCOME TO THE DEEP LAYER';
 
     useEffect(() => {
         const textInterval = setInterval(() => {
-            setRandomText(generateRandomString(Math.floor(Math.random() * 20) + 10));
-        }, 100);
+            setRandomTexts(Array.from({ length: 5 }, () => generateRandomString(Math.floor(Math.random() * 15) + 5)));
+        }, 150);
 
-        // 8秒後に最終メッセージを表示
         const finalTimeout = setTimeout(() => {
             clearInterval(textInterval);
-            setRandomText('');
-            setFinalMessage('WELCOME TO THE DEEP LAYER');
+            setRandomTexts([]);
+            setGlitchActive(false);
+
+            // カメラを引く
+            setCameraTargetZ(15);
+
+            // 少し待ってからタイピングを開始
+            setTimeout(() => {
+                let i = 0;
+                const typingInterval = setInterval(() => {
+                    setFinalMessage(fullFinalMessage.substring(0, i + 1));
+                    i++;
+                    if (i > fullFinalMessage.length) {
+                        clearInterval(typingInterval);
+                    }
+                }, 100);
+            }, 1000); // カメラが引くのを待つ
+
         }, 8000);
 
-        // 10秒後にアニメーションを終了
         const exitTimeout = setTimeout(() => {
             setIsExiting(true);
-            setTimeout(onFinished, 1000); // フェードアウトの時間
+            setTimeout(onFinished, 1500);
         }, 16000);
 
         return () => {
@@ -80,34 +102,45 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
         };
     }, [onFinished]);
 
+    const textPositions = useMemo(() => [
+        [0, 4, -2],
+        [-8, -3, -7],
+        [10, 2, -12],
+        [2, -6, -5],
+        [-12, 5, -10]
+    ], []);
+
     return (
         <div className={`fixed inset-0 bg-black z-[100] transition-opacity duration-1000 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
-            <Canvas camera={{ position: [0, 0, 15], fov: 75 }}>
-                <ambientLight intensity={0.5} />
+            <Canvas camera={{ position: [0, 0, 20], fov: 75 }}>
+                <ambientLight intensity={0.2} />
                 <Grid />
+                <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
                 <RotatingObject />
+                <AnimatedCamera targetZ={cameraTargetZ} />
 
-                {/* ランダムなテキストを複数配置 */}
-                <GlitchyText text={randomText} position={[0, 5, 0]} fontSize={1} />
-                <GlitchyText text={generateRandomString(10)} position={[-8, -4, -5]} fontSize={0.5} />
-                <GlitchyText text={generateRandomString(15)} position={[10, 2, -10]} fontSize={0.7} />
+                {randomTexts.map((text, i) => (
+                    <GlitchyText key={i} text={text} position={textPositions[i] as [number, number, number]} fontSize={0.5} />
+                ))}
 
-                {/* 最終メッセージ */}
                 {finalMessage && (
-                    <Text position={[0, 0, 5]} fontSize={1.5} color="white" anchorX="center" anchorY="middle">
+                    <Text position={[0, 0, 4]} fontSize={1.2} color="white" anchorX="center" anchorY="middle" letterSpacing={0.3}>
                         {finalMessage}
+                        <meshStandardMaterial emissive="#fff" emissiveIntensity={2} toneMapped={false} />
                     </Text>
                 )}
 
                 <EffectComposer>
-                    <Bloom intensity={1.5} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
+                    <Bloom intensity={1.2} luminanceThreshold={0.1} luminanceSmoothing={0.8} mipmapBlur />
+                    <Scanline density={1.5} opacity={0.2} />
                     <Glitch
-                        delay={new Vector2(0.5, 1.5)}
-                        duration={new Vector2(0.1, 0.3)}
-                        strength={new Vector2(0.1, 0.3)}
+                        delay={new Vector2(1.5, 3.5)}
+                        duration={new Vector2(0.2, 0.5)}
+                        strength={new Vector2(0.05, 0.1)}
                         mode={GlitchMode.SPORADIC}
-                        active
+                        active={glitchActive}
                     />
+                    <ChromaticAberration offset={new Vector2(0.002, 0.002)} />
                 </EffectComposer>
             </Canvas>
         </div>
