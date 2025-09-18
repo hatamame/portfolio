@@ -6,6 +6,8 @@ import LoadingAnimation from './components/LoadingAnimation';
 import HiddenContent from './components/HiddenContent';
 import SecretButton from './components/SecretButton';
 import SecretLoadingAnimation from './components/SecretLoadingAnimation';
+import ExecutionSequence from './components/ExecutionSequence';
+import SpecialAnimation from './components/SpecialAnimation';
 
 
 // Sections
@@ -30,6 +32,8 @@ const App = () => {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [showHiddenPage, setShowHiddenPage] = useState(false);
   const [showSecretLoading, setShowSecretLoading] = useState(false);
+  const [showExecutionSequence, setShowExecutionSequence] = useState(false);
+  const [showSpecialAnimation, setShowSpecialAnimation] = useState(false);
   const isLoaded = showPortfolio;
 
   // Mouse follow effect
@@ -72,6 +76,11 @@ const App = () => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleExecuteSecretCommand = () => {
+    setShowHiddenPage(false);
+    setShowExecutionSequence(true);
+  };
+
   if (!showPortfolio) {
     return <LoadingAnimation onFinished={() => setShowPortfolio(true)} />;
   }
@@ -88,8 +97,22 @@ const App = () => {
     );
   }
 
+  if (showExecutionSequence) {
+    return <ExecutionSequence onFinished={() => {
+      setShowExecutionSequence(false);
+      setShowSpecialAnimation(true);
+    }} />;
+  }
+
+  if (showSpecialAnimation) {
+    return <SpecialAnimation onFinished={() => setShowSpecialAnimation(false)} />;
+  }
+
   if (showHiddenPage) {
-    return <HiddenContent backToPortfolio={() => setShowHiddenPage(false)} />;
+    return <HiddenContent
+      backToPortfolio={() => setShowHiddenPage(false)}
+      executeSecretCommand={handleExecuteSecretCommand}
+    />;
   }
 
   const activateDebugMode = () => {

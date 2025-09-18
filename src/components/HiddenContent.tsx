@@ -65,13 +65,14 @@ const MatrixEffect: FC = () => {
 
 interface HiddenContentProps {
     backToPortfolio: () => void;
+    executeSecretCommand: () => void;
 }
 
-const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
+const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio, executeSecretCommand }) => {
     const [history, setHistory] = useState<string[]>([]);
     const [input, setInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [mode, setMode] = useState<'normal' | 'password' | 'game'>('normal');
+    const [mode, setMode] = useState<'normal' | 'password' | 'game' | 'confirm_secret'>('normal');
     const [unlockedFiles, setUnlockedFiles] = useState<string[]>([]);
     const [justUnlockedFile, setJustUnlockedFile] = useState<string | null>(null);
     const [activeFile, setActiveFile] = useState<string>('');
@@ -236,6 +237,11 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                 backToPortfolio();
                 break;
 
+            case 'protocol_zero':
+                setMode('confirm_secret');
+                addToHistory([`Execute 'protocol_zero'? This action cannot be undone. (y/n)`]);
+                break;
+
             case undefined: // Empty input
                 addToHistory(['']);
                 break;
@@ -327,6 +333,14 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                 addToHistory([`> ********`]);
             } else if (mode === 'game') {
                 setGameGuess({ value: currentInput, timestamp: Date.now() });
+            } else if (mode === 'confirm_secret') {
+                const confirmation = currentInput.toLowerCase();
+                if (confirmation === 'y') {
+                    executeSecretCommand();
+                } else {
+                    addToHistory(['> Execution cancelled.', '']);
+                    setMode('normal');
+                }
             }
         }
     };
@@ -344,7 +358,7 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                                 setShowMatrix(false);
                                 // マトリックス表示後にファイル内容を表示
                                 addToHistory(["<span class='text-green-400'>DECRYPTION COMPLETE.</span> Displaying file contents..."]);
-                                const node = getNodeByPath('unreleased_projects/Project_Zero.log', fileSystem);
+                                const node = getNodeByPath('project_zero.log', fileSystem);
                                 if (node?.type === 'file' && node.content) {
                                     addToHistory([...node.content.trim().split('\n'), '']);
                                 }
@@ -378,7 +392,9 @@ const InteractiveTerminal: FC<HiddenContentProps> = ({ backToPortfolio }) => {
                     ))}
                     {!isProcessing && mode !== 'game' && (
                         <div className="flex">
-                            <span className="mr-2">{mode === 'password' ? 'Enter password:' : '>'}</span>
+                            <span className="mr-2">
+                                {mode === 'password' ? 'Enter password:' : mode === 'confirm_secret' ? '' : '>'}
+                            </span>
                             <input
                                 ref={inputRef}
                                 type={mode === 'password' ? 'password' : 'text'}

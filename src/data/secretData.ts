@@ -48,6 +48,8 @@ It reminds me that every complex system starts with a single line of code.
 Thank you for taking the time to uncover this piece of my history.
 Your curiosity and persistence are the marks of a true developer.
 
+P.S. To see the true beginning, execute 'protocol_zero'.
+
 - Haruta Tsukada
       `,
                 },
