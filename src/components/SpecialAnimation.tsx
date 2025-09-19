@@ -61,6 +61,7 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
     const [finalMessage, setFinalMessage] = useState('');
     const [isExiting, setIsExiting] = useState(false);
     const [glitchActive, setGlitchActive] = useState(true);
+    const [finalGlitchActive, setFinalGlitchActive] = useState(false);
     const [cameraTargetZ, setCameraTargetZ] = useState(5);
     const fullFinalMessage = 'WELCOME TO THE DEEP LAYER';
 
@@ -92,6 +93,9 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
                     i++;
                     if (i > fullFinalMessage.length) {
                         clearInterval(typingInterval);
+                        setTimeout(() => {
+                            setFinalGlitchActive(true);
+                        }, 500);
                     }
                 }, 100);
             }, 1000);
@@ -155,6 +159,13 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
                             strength={new Vector2(0.05, 0.1)}
                             mode={GlitchMode.SPORADIC}
                             active={glitchActive}
+                        />
+                        <Glitch
+                            delay={new Vector2(0, 0)}
+                            duration={new Vector2(1, 1)}
+                            strength={new Vector2(0.2, 0.5)}
+                            mode={GlitchMode.CONSTANT_WILD}
+                            active={finalGlitchActive}
                         />
                         <ChromaticAberration offset={new Vector2(0.002, 0.002)} />
                     </EffectComposer>
