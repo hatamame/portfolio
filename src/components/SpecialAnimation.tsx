@@ -56,6 +56,7 @@ interface SpecialAnimationProps {
 }
 
 const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
+    const [isBooting, setIsBooting] = useState(true);
     const [randomTexts, setRandomTexts] = useState<string[]>([]);
     const [finalMessage, setFinalMessage] = useState('');
     const [isExiting, setIsExiting] = useState(false);
@@ -64,6 +65,16 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
     const fullFinalMessage = 'WELCOME TO THE DEEP LAYER';
 
     useEffect(() => {
+        const bootTimeout = setTimeout(() => {
+            setIsBooting(false);
+        }, 2000); // 2秒間のブートシーケンス
+
+        return () => clearTimeout(bootTimeout);
+    }, []);
+
+    useEffect(() => {
+        if (isBooting) return;
+
         const textInterval = setInterval(() => {
             setRandomTexts(Array.from({ length: 5 }, () => generateRandomString(Math.floor(Math.random() * 15) + 5)));
         }, 150);
@@ -72,11 +83,8 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
             clearInterval(textInterval);
             setRandomTexts([]);
             setGlitchActive(false);
-
-            // カメラを引く
             setCameraTargetZ(15);
 
-            // 少し待ってからタイピングを開始
             setTimeout(() => {
                 let i = 0;
                 const typingInterval = setInterval(() => {
@@ -86,21 +94,21 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
                         clearInterval(typingInterval);
                     }
                 }, 100);
-            }, 1000); // カメラが引くのを待つ
+            }, 1000);
 
         }, 8000);
 
         const exitTimeout = setTimeout(() => {
             setIsExiting(true);
             setTimeout(onFinished, 1500);
-        }, 16000);
+        }, 14000); // 全体の時間を調整
 
         return () => {
             clearInterval(textInterval);
             clearTimeout(finalTimeout);
             clearTimeout(exitTimeout);
         };
-    }, [onFinished]);
+    }, [isBooting, onFinished]);
 
     const textPositions = useMemo(() => [
         [0, 4, -2],
@@ -111,38 +119,47 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
     ], []);
 
     return (
-        <div className={`fixed inset-0 bg-black z-[100] transition-opacity duration-1000 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
-            <Canvas camera={{ position: [0, 0, 20], fov: 75 }}>
-                <ambientLight intensity={0.2} />
-                <Grid />
-                <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-                <RotatingObject />
-                <AnimatedCamera targetZ={cameraTargetZ} />
+        <div className={`fixed inset-0 bg-black z-[100] transition-opacity duration-1000 ${isExiting ? 'opacity-0' : 'opacity-100'} crt-vignette crt-scanlines`}>
+            {isBooting ? (
+                <div className="boot-container w-full h-full flex items-center justify-center overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-cyan-400/80 shadow-[0_0_15px_5px_rgba(34,211,238,0.7)] animate-crt-reveal z-[103]" />
+                    <p className="text-2xl md:text-4xl text-cyan-400 font-mono animate-crt-text tracking-widest">
+                        &gt; SYSTEM BOOT...
+                    </p>
+                </div>
+            ) : (
+                <Canvas camera={{ position: [0, 0, 20], fov: 75 }}>
+                    <ambientLight intensity={0.2} />
+                    <Grid />
+                    <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+                    <RotatingObject />
+                    <AnimatedCamera targetZ={cameraTargetZ} />
 
-                {randomTexts.map((text, i) => (
-                    <GlitchyText key={i} text={text} position={textPositions[i] as [number, number, number]} fontSize={0.5} />
-                ))}
+                    {randomTexts.map((text, i) => (
+                        <GlitchyText key={i} text={text} position={textPositions[i] as [number, number, number]} fontSize={0.5} />
+                    ))}
 
-                {finalMessage && (
-                    <Text position={[0, 0, 4]} fontSize={1.2} color="white" anchorX="center" anchorY="middle" letterSpacing={0.3}>
-                        {finalMessage}
-                        <meshStandardMaterial emissive="#fff" emissiveIntensity={2} toneMapped={false} />
-                    </Text>
-                )}
+                    {finalMessage && (
+                        <Text position={[0, 0, 4]} fontSize={1.2} color="white" anchorX="center" anchorY="middle" letterSpacing={0.3}>
+                            {finalMessage}
+                            <meshStandardMaterial emissive="#fff" emissiveIntensity={2} toneMapped={false} />
+                        </Text>
+                    )}
 
-                <EffectComposer>
-                    <Bloom intensity={1.2} luminanceThreshold={0.1} luminanceSmoothing={0.8} mipmapBlur />
-                    <Scanline density={1.5} opacity={0.2} />
-                    <Glitch
-                        delay={new Vector2(1.5, 3.5)}
-                        duration={new Vector2(0.2, 0.5)}
-                        strength={new Vector2(0.05, 0.1)}
-                        mode={GlitchMode.SPORADIC}
-                        active={glitchActive}
-                    />
-                    <ChromaticAberration offset={new Vector2(0.002, 0.002)} />
-                </EffectComposer>
-            </Canvas>
+                    <EffectComposer>
+                        <Bloom intensity={1.2} luminanceThreshold={0.1} luminanceSmoothing={0.8} mipmapBlur />
+                        <Scanline density={1.5} opacity={0.2} />
+                        <Glitch
+                            delay={new Vector2(1.5, 3.5)}
+                            duration={new Vector2(0.2, 0.5)}
+                            strength={new Vector2(0.05, 0.1)}
+                            mode={GlitchMode.SPORADIC}
+                            active={glitchActive}
+                        />
+                        <ChromaticAberration offset={new Vector2(0.002, 0.002)} />
+                    </EffectComposer>
+                </Canvas>
+            )}
         </div>
     );
 };
