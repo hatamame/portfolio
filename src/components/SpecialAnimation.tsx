@@ -104,8 +104,8 @@ const SpecialAnimation: FC<SpecialAnimationProps> = ({ onFinished }) => {
 
         const exitTimeout = setTimeout(() => {
             setIsExiting(true);
-            setTimeout(onFinished, 1500);
-        }, 14000); // 全体の時間を調整
+            setTimeout(onFinished, 5000);
+        }, 20000); // 全体の時間を調整
 
         return () => {
             clearInterval(textInterval);

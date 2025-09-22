@@ -37,6 +37,15 @@ export const projects: Project[] = [
     github: "https://github.com/hatamame/horserace",
     live: "https://horserace-nine.vercel.app/",
     image: "img/keiba-app.png"
+  },
+  {
+    id: 5,
+    title: "ポートフォリオサイト",
+    description: "ReactとThree.jsを使用した3Dアニメーション搭載のポートフォリオサイト。",
+    tech: ["React", "TypeScript", "Three.js", "Tailwind CSS"],
+    github: "https://github.com/hatamame/portfolio",
+    live: "https://portfolio-three-kappa-62.vercel.app/",
+    image: "img/portfolio.png"
   }
 ];
 

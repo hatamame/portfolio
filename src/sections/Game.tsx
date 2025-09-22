@@ -42,7 +42,6 @@ const Game: FC<GameProps> = ({ setGameCompleted }) => {
             cancelAnimationFrame(gameLoopRef.current);
         }
 
-        // --- Game Variables ---
         let rightPressed = false;
         let leftPressed = false;
 
@@ -69,7 +68,6 @@ const Game: FC<GameProps> = ({ setGameCompleted }) => {
         let shakeDuration = 0;
         let particles: Particle[] = [];
 
-        // --- Game Initialization ---
         const initGame = (stage: number) => {
             x = canvas.width / 2;
             y = canvas.height - 50;
@@ -104,7 +102,6 @@ const Game: FC<GameProps> = ({ setGameCompleted }) => {
             initGame(currentStage);
         }
 
-        // --- Event Handlers ---
         const keyDownHandler = (e: KeyboardEvent) => {
             if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
             else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
@@ -116,7 +113,6 @@ const Game: FC<GameProps> = ({ setGameCompleted }) => {
         document.addEventListener("keydown", keyDownHandler);
         document.addEventListener("keyup", keyUpHandler);
 
-        // --- Utility Functions ---
         const createParticles = (brick: Brick) => {
             for (let i = 0; i < 15; i++) {
                 particles.push({
@@ -135,7 +131,6 @@ const Game: FC<GameProps> = ({ setGameCompleted }) => {
             shakeDuration = duration;
         }
 
-        // --- Collision Detection ---
         const collisionDetection = () => {
             let allBricksDestroyed = true;
             for (let c = 0; c < bricks.length; c++) {
